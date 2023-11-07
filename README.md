@@ -1,5 +1,5 @@
-# ADLP-sandbox
-Sandbox repository for ADLP - ensemble reserving package
+# ADLP
+Repository for ADLP - ensemble reserving package
 
 ## Introduction 
 
@@ -26,7 +26,7 @@ This section provides an overview of the folders and files located in this repos
         * Defines the functions to calibrate an ADLP ensemble, and functions to calculate the density, Log Score and CRPS of the fitted ADLP objects. The simulation function for ADLP ensembles is also contained.
     * `S3_methods.R`:
         * Contains miscellaneous functions used for predictions and results printing.
- * DemoData: stores demomonstration datasets used for the ADLP package demonstration (`ADLP-demo.Rmd`).
+ * Paper results replication: contains the Rmarkdown file to replicate the key results in the paper "Ensemble distributional forecasting for insurance loss reserving"
  * vignettes: contains the demonstration file for the ADLP package (`ADLP-demo.Rmd`).
 
 
