@@ -1,0 +1,21 @@
+citHeader("To cite ADLP in publications use:")
+
+bibentry(
+  bibtype  = "Article",
+  title = "Ensemble distributional forecasting for insurance loss reserving",
+  language = "en",
+  journal = "arXiv preprint arXiv:2206.08541",
+  author = c(
+    person("Benjamin", "Avanzi"),
+    person("Yanfeng", "Li"),
+    person("Bernard", "Wong"),
+    person("Alan", "Xian")),
+      month = "September",
+      year = "2023",
+      textVersion = paste("Avanzi, B., Li, Y., Wong, B., Xian, A., 2023.",
+	                    "Ensemble distributional forecasting for insurance loss reserving",
+	                    "arXiv",
+	                    "https://doi.org/10.48550/arXiv.2206.08541")
+)
+
+
