@@ -30,6 +30,7 @@ will work. All other columns can be constructed as required for model inputs.
 
 ```{r setup}
 library(ADLP)
+if (!require(SynthETIC)) install.packages("SynthETIC")
 if (!require(tidyverse)) install.packages("tidyverse")
 library(tidyverse)
 
