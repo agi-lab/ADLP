@@ -21,7 +21,7 @@ adlp_CRPS(
   model = c("train", "full"),
   lower = 1,
   upper = NULL,
-  sample_n = 1000
+  sample_n = 2000
 )
 
 adlp_simulate(n, adlp, newdata = NULL)
@@ -29,24 +29,28 @@ adlp_simulate(n, adlp, newdata = NULL)
 \arguments{
 \item{newdata}{Data to perform the function on}
 
-\item{adlp}{Object of class `adlp`}
+\item{adlp}{Object of class \code{adlp}}
 
-\item{model}{Whether the `train` or `full` model should be used in function}
+\item{model}{Whether the \code{train} or \code{full} model should be used in function}
 
 \item{epsilon}{Offset added to the density before calculating the log}
 
-\item{lower}{The lower limit to calculate CRPS}
+\item{lower}{The lower limit to calculate CRPS; the default value is set to be 1}
 
-\item{upper}{The upper limit to calculate CRPS}
+\item{upper}{The upper limit to calculate CRPS; the default value is set to be
+twice the maximum value of the response variable in the dataset}
 
-\item{sample_n}{The number of values to sample between lower and upper}
+\item{sample_n}{The number of values to sample between lower and upper range of
+numeric integration used to calculate CRPS. This sample function is designed to
+constrain memory usage during the computation of CRPS,
+particularly when dealing with large response variables.}
 
 \item{n}{number of simulations}
 }
 \value{
-`data.frame` of results, where the first and second columns correspond
-to the `$origin` and `$dev` columns from the triangles. An index column for
-`simulation #` is also included when simulating ADLP.
+\code{data.frame} of results, where the first and second columns correspond
+to the \verb{$origin} and \verb{$dev} columns from the triangles. An index column for
+\code{simulation #} is also included when simulating ADLP.
 }
 \description{
 Family of functions used to support ADLP inference and prediction.
@@ -54,16 +58,16 @@ Family of functions used to support ADLP inference and prediction.
 \details{
 Predicts the central estimates based on the ADLP component models and weights.
 
-Calculates the probability density ad each point, given `newdata`.
+Calculates the probability density ad each point, given \code{newdata}.
 
 Calculates the log score, which is the log of the probability density, with
-an offset `epsilon` to handle zero densities.
- Log Score is a strictly proper scoring rule.
+an offset \code{epsilon} to handle zero densities.
+Log Score is a strictly proper scoring rule.
 For full discussion of the mathematical details and
 advantages of Log Score, one might refer to Gneiting and Raftery (2007)
 
 Continuously Ranked Probability Score (CRPS) is calculated for each data point.
-`lower` and `upper` are used as limits when approximating the integral.
+\code{lower} and \code{upper} are used as limits when approximating the integral.
 CRPS is a strictly proper scoring rule.
 For full discussion of the mathematical details and
 advantages of CRPS, one might refer to Gneiting and Raftery (2007).

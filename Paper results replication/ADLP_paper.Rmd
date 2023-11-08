@@ -1,0 +1,1607 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Introduction:
+
+This Rmarkdown file seeks to reproduce the key results in the paper "Ensemble distributional forecasting for insurance loss reserving", which contains the following sections:
+
+- **Package loading**: Load the required packages used in the paper and relevant functions from the `ADLP` package
+- **Claims Simulation**: Simulate the claims triangles used in the paper based on the `SynthETIC` package; the default setting is to simulate 100 triangles with size 40x40. 
+- **Create component functions**: Create and fit all the component models to be used in the ADLP ensemble based on the list of models shown in the paper
+- **Fit ADLP**: Calibrate all the ADLP ensembles used in the paper
+- **Model evaluation with proper scoring rules**: Evaluate the fitted ADLP ensembles based on the proper scoring rules used in the paper
+- **Reserve calculation**: Calculate the aggregate reserve estimation for the selected ADLP ensemble in the paper
+
+
+
+# Package loading: 
+
+
+```{r}
+
+# Load the packages:
+# devtools::document()
+devtools::load_all("../ADLP-package")
+library(gamlss)
+library(gamlss.dist)
+library(gamlss.inf)
+library(tweedie)
+
+```
+
+
+```{r}
+
+train_val_split <- function(df) {
+
+    # Subsets claims dataframe into 6 training, validation and test sets
+    # Construction of Training Set:
+    train_1 <- df[df$calendar<=34, ]
+    train_2 <- df[df$origin==1 & 34<=df$dev & df$dev<=40, ]
+    train_3 <- df[35<=df$calendar & df$calendar<=36 & df$dev <=2, ]
+    train_4 <- df[36<=df$origin & df$dev==1, ]
+    train<-rbind(train_1,train_2,train_3,train_4)
+    train[order(train$origin),]
+
+    # Construction of Validation set:
+    valid_1 <- df[35<=df$calendar & df$calendar<=41 & 2<=df$origin & 3<=df$dev, ]
+    valid_2 <- df[35<=df$origin & df$origin<=39 & df$dev == 2, ]
+    valid<-rbind(valid_1,valid_2)
+    valid[order(valid$origin),]
+
+    return(list(train=train, valid=valid))
+}
+```
+
+# Claims Simulation
+
+```{r Simulation}
+simulate_claims <- T
+
+## Define the number of simulations and th triangle size
+n.sims <- 100
+tri.size <-40
+
+## Install the 'SynthETIC' and the 'ChainLadder' packages if required:
+if (!require(SynthETIC)) install.packages('SynthETIC')
+if (!require(ChainLadder)) install.packages('ChainLadder')
+library("SynthETIC")
+library("ChainLadder")
+
+if (simulate_claims) {source('simulation/simulate_claims.R')}
+```
+
+
+
+
+# Create component functions
+
+```{r}
+
+dODP<-function(y,lambda,phi) {
+    z <- ifelse(rep(phi, length(y)) < 1e-6, dpois(floor(y), lambda), dpois(floor(y/phi), floor(lambda/phi))/phi)
+    return (z)
+}
+
+pODP<-function(y,lambda,phi) {
+    lambda <- as.vector(lambda)
+    phi <- as.vector(phi)
+    return (
+        sapply(
+            1:length(y),
+            function (x)
+                tweedie::ptweedie(q = y[x], 
+                                  mu = lambda[(x-1) %% length(lambda) + 1], 
+                                  phi = phi[(x-1) %% length(phi) + 1],
+                                  power = 1)
+        )
+    )
+}
+
+dens_ODP_GLM <- function(y, model, newdata) {
+    pred_ODP<-predict.glm(model,newdata=newdata,type="response",se.fit=TRUE)
+    pred_ODP_mu<-pred_ODP$fit
+    pred_ODP_phi<-(pred_ODP$residual.scale)^2
+    return(dODP(y,lambda=pred_ODP_mu,phi=pred_ODP_phi))
+}
+
+CDF_ODP_GLM<-function(y, model, newdata){
+    pred_ODP<-predict.glm(model,newdata=newdata,type="response",se.fit=TRUE)
+    pred_ODP_mu<-pred_ODP$fit
+    pred_ODP_phi<-(pred_ODP$residual.scale)^2
+    return(pODP(y,lambda=pred_ODP_mu,phi=pred_ODP_phi))
+}
+
+mu_ODP_GLM<-function(model, newdata){
+    pred_ODP<-predict.glm(model,newdata=newdata,type="response",se.fit=TRUE)
+    pred_ODP_mu<-pred_ODP$fit
+    return(pred_ODP_mu)
+}
+
+sim_ODP_GLM<-function(model, newdata){
+    pred_ODP<-predict.glm(model,newdata=newdata,type="response",se.fit=TRUE)
+    pred_ODP_mu<-pred_ODP$fit
+    pred_ODP_phi<-(pred_ODP$residual.scale)^2
+    simy<-replicate(1,rtweedie(length(pred_ODP_mu),xi=1,mu=pred_ODP_mu,phi=pred_ODP_phi))
+    return(simy)
+}
+
+dens_LN <- function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(dLNO(x=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+CDF_LN<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(pLNO(q=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+mu_LN<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    mean<-exp(pred_mu+pred_sigma^2/2)
+    return(mean - tau)
+}
+
+sim_LN<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    simy<-replicate(1, rLNO(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma)-tau)
+    simy[simy<0]<-0
+    return(simy)
+}
+
+dens_GA <- function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(dGA(x=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+CDF_GA<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(pGA(q=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+mu_GA<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    }))
+    return(pred_mu - tau)
+}
+
+sim_GA<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    simy<-replicate(1, rGA(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma)-tau)
+    simy[simy<0]<-0
+    return(simy)
+}
+
+dens_NO <- function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(dNO(x=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+CDF_Normal<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(pNO(q=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+mu_Normal<-function(model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    }))
+    return(pred_mu)
+}
+
+sim_NO<-function(model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    simy<-replicate(1,rNO(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma))
+    simy[simy<0]<-0
+    return(simy)
+}
+
+dens_ZAGA<-function(y, model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,what="nu",newdata=newdata_nu,type="response")
+    return(dZAGA(x=y,mu=pred_mu,sigma=pred_sigma,nu=pred_nu))
+}
+
+CDF_ZAGA<-function(y, model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,what="nu",newdata=newdata_nu,type="response")
+    return(gamlss.dist::pZAGA(q=y,mu=pred_mu,sigma=pred_sigma,nu=pred_nu))
+}
+
+mu_ZAGA<-function(model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_nu<-predict(model,what="nu",newdata=newdata_nu,type="response")
+    mean<-(1-pred_nu)*pred_mu
+    return(mean)
+}
+
+sim_ZAGA<-function(model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,what="nu",newdata=newdata_nu,type="response")
+    pred_nu<-mean(pred_nu)
+    simy<-replicate(1, rZAGA(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma,nu=pred_nu))
+    return(simy)
+}
+
+dZALN<-gamlss.inf::Zadj.d(family="LOGNO")
+pZALN<-gamlss.inf::Zadj.p(family="LOGNO")
+rZALN<-gamlss.inf::Zadj.r(family="LOGNO")
+dens_ZALN<-function(y, model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,parameter="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,parameter="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,parameter="xi0",newdata=newdata_nu,type="response")
+    return(dZALN(x=y,mu=pred_mu,sigma=pred_sigma,xi0=pred_nu))
+}
+
+CDF_ZALN<-function(y, model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,parameter="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,parameter="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,parameter="xi0",newdata=newdata_nu,type="response")
+    return(pZALN(q=y,mu=pred_mu,sigma=pred_sigma,xi0=pred_nu))
+}
+
+mu_ZALN<-function(model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,parameter="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,parameter="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,parameter="xi0",newdata=newdata_nu,type="response")
+    mean<-(1-pred_nu)*exp(pred_mu+pred_sigma^2/2)
+    return(mean)
+}
+
+sim_ZALN<-function(model, newdata){
+    newdata_nu<-newdata
+    newdata_nu$dev=as.numeric(as.character(newdata$dev))
+    pred_mu<-predict(model,parameter="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,parameter="sigma",newdata=newdata,type="response")
+    pred_nu<-predict(model,parameter="xi0",newdata=newdata_nu,type="response")
+    pred_nu<-mean(pred_nu)
+    simy<-replicate(1,rZALN(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma,xi0=pred_nu))
+    return(simy)
+}
+
+##Calculate Gamma density for Gamma GAMLSS
+dens_GA_Gamlss<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(dGA(x=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+CDF_GA_Gamlss<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(pGA(q=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+mu_GA_Gamlss<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    }))
+    return(pred_mu - tau)
+}
+
+sim_GA_Gamlss<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    simy<-replicate(1, rGA(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma)-tau)
+    simy[simy<0]<-0
+    return(simy)
+}
+
+##Calculate Gamma density for Gamma GAMLSS
+dens_LN_Gamlss<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(dLNO(x=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+##Calculate Log-Normal CDF for Log-Normal GAMLSS
+CDF_LN_Gamlss<-function(y, model, newdata){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    return(pLNO(q=y,mu=pred_mu,sigma=pred_sigma))
+}
+
+mu_LN_Gamlss<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    mean<-exp(pred_mu+1/2*pred_sigma^2)
+    return(mean - tau)
+}
+
+sim_LN_Gamlss<-function(model, newdata, tau){
+    invisible(capture.output({
+    pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
+    pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
+    }))
+    simy<-replicate(1, rLNO(n=length(pred_mu),mu=pred_mu,sigma=pred_sigma)-tau)
+    simy[simy<0]<-0
+    return(simy)
+}
+
+################################################################################
+### Special implementation for hierarchical models
+################################################################################
+
+vlookup_N_i <- function(N, data){
+    
+    N_rep <- c()
+    occurence_years <- as.numeric(data$origin)
+    
+    for (i in occurence_years) {
+        N_rep <- c(N_rep, N[i])
+    }
+    
+    return(N_rep)
+}
+
+calc_PPCI <- function(N, data) {
+    ##Fit a second model for paid loss
+    ##Payment per Notified Claim
+    ###Repeat each element in N_rep by the number of entries in each accident period
+    N_rep<-vlookup_N_i(N,data)
+    PPCI=data[order(as.numeric(data$origin)),]$aggregate_claims/N_rep
+    
+    return (PPCI)
+}
+    
+dens_PPCI <- function(y, newdata, train_data, tri.size) {
+
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    ###PPCI
+    ##Fit a ODP/Chain-Ladder model to predict total claim notification count at each accident period 
+    PPCI <- calc_PPCI(N, train_data)
+    fit_ODP_ppci<-glm(PPCI~factor(dev),family=quasipoisson(link="log"),data=train_data)
+    
+    N_rep<-vlookup_N_i(N, newdata)
+    pred_ODP<-predict.glm(fit_ODP_ppci,newdata=newdata,type="response",se.fit=TRUE)
+    mu<-pred_ODP$fit*N_rep
+    phi<-(pred_ODP$residual.scale)^2*(N_rep)^2
+    dens<-c()
+    for (i in 1:length(y)){
+        dens[i]<-dODP(y=y[i],lambda=mu[i],phi=phi[i])
+    }
+    dens
+}
+
+CDF_PPCI<-function(y, newdata, train_data, tri.size){
+
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    ###PPCI
+    ##Fit a ODP/Chain-Ladder model to predict total claim notification count at each accident period 
+    PPCI <- calc_PPCI(N, train_data)
+    fit_ODP_ppci<-glm(PPCI~factor(dev),family=quasipoisson(link="log"),data=train_data)
+    
+    N_rep<-vlookup_N_i(N, newdata)
+    pred_ODP<-predict.glm(fit_ODP_ppci,newdata=newdata,type="response",se.fit=TRUE)
+    mu<-pred_ODP$fit*N_rep
+    phi<-(pred_ODP$residual.scale)^2*(N_rep)^2
+    
+    return (pODP(y=y, lambda=mu,phi=phi))
+}
+
+mu_PPCI<-function(newdata, train_data, tri.size){
+  ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    ###PPCI
+    ##Fit a ODP/Chain-Ladder model to predict total claim notification count at each accident period 
+    PPCI <- calc_PPCI(N, train_data)
+    fit_ODP_ppci<-glm(PPCI~factor(dev),family=quasipoisson(link="log"),data=train_data)
+    
+    N_rep<-vlookup_N_i(N, newdata)
+    pred_ODP<-predict.glm(fit_ODP_ppci,newdata=newdata,type="response",se.fit=TRUE)
+    mu<-pred_ODP$fit*N_rep
+  return(mu)
+}
+
+sim_PPCI<-function(newdata, train_data, tri.size){
+
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    ###PPCI
+    ##Fit a ODP/Chain-Ladder model to predict total claim notification count at each accident period 
+    PPCI <- calc_PPCI(N, train_data)
+    fit_ODP_ppci<-glm(PPCI~factor(dev),family=quasipoisson(link="log"),data=train_data)
+    
+    N_rep<-vlookup_N_i(N, newdata)
+    pred_ODP<-predict.glm(fit_ODP_ppci,newdata=newdata,type="response",se.fit=TRUE)
+    mu<-pred_ODP$fit*N_rep
+    phi<-(pred_ODP$residual.scale)^2*(N_rep)^2
+    simy<-replicate(1, rtweedie(length(mu),xi=1,mu=mu,phi=phi))
+    return(simy)
+}
+
+calc_PPCF <- function(N, data) {
+    PPCF=data$aggregate_claims/data$settle_count
+    #Create a column for operation time
+    ##Fit a second model for paid loss
+    ##Payment per Notified Claim
+    ###Repeat each element in N_rep by the number of entries in each accident period
+    N_rep<-vlookup_N_i(N,data)
+    OT=data$cum_settle_count/N_rep
+    #Remove the cells with zero finalized claim count but with positive payments; 
+    PPCF_data <- data.frame(list(PPCF = PPCF, OT=OT))
+    PPCF_data<-na.omit(PPCF_data[PPCF_data$PPCF!=Inf,])
+    
+    return (PPCF_data)
+}
+
+calc_pred_OT <- function(model_subCount, N, data, newdata, tri.size) {
+    N_rep<-vlookup_N_i(N,newdata)
+    # Predicted Finalised Claims for Each dataset
+    # Assumes model only uses dev
+    pred_F<-predict(model_subCount,newdata=data.frame(dev=1:tri.size),type="response")
+    
+    cum_F_count_train <-  matrix(0, nrow = tri.size, ncol = tri.size)
+    for (i in 1:tri.size) {
+      for (j in 1:tri.size) {
+        # If cumulative settled count does not exist in train dataset
+        # Add the most recent cumulative settled count from previous dev year and the predicted settle count for the year
+        # Assumes that there is always a value for dev year 1 
+        cum_F_count_train[i, j] <- ifelse(nrow(data[(data$origin==i)&(data$dev==j), ]) == 0, 
+                                          cum_F_count_train[i, j-1] + pred_F[j], 
+                                          data[(data$origin==i)&(data$dev==j), 'cum_settle_count'])
+      }
+    }
+    
+    pred_F_cum <- unlist(mapply(function(i, j) cum_F_count_train[i, j], 
+                                as.numeric(as.character(newdata$origin)),
+                                as.numeric(as.character(newdata$dev))
+    ))
+    
+    pred_OT<-pred_F_cum/N_rep
+    
+    return(pred_OT)
+}
+
+dens_PPCF <- function(y, newdata, train_data, tri.size) {
+
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    odp_FC<-glm(settle_count~factor(dev),data=train_data,family=quasipoisson(link="log"))
+    PPCF_data <- calc_PPCF(N, train_data) 
+    ODP_PPCF<-glm(PPCF~OT,family=quasipoisson(link="log"),data=PPCF_data)
+    
+    pred_F<-predict(odp_FC,newdata=newdata,type="response")
+    pred_OT <- calc_pred_OT(odp_FC, N, train_data, newdata, tri.size)
+    
+    pred_payment<-predict(ODP_PPCF,newdata=data.frame(OT=pred_OT),type="response",se.fit=TRUE)
+    mu<-pred_payment$fit*pred_F
+    phi<-(pred_payment$residual.scale)^2*(pred_F)^2
+    
+    dens_PPCF<-c()
+    for (i in 1:length(y)){
+      dens_PPCF[i]<-dODP(y=y[i],lambda=mu[i],phi=phi[i])
+    }
+    dens_PPCF[dens_PPCF==0]=min(dens_PPCF[dens_PPCF!=0])
+    dens_PPCF
+}
+
+CDF_PPCF<-function(y, newdata, train_data, tri.size){
+    
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    odp_FC<-glm(settle_count~factor(dev),data=train_data,family=quasipoisson(link="log"))
+    PPCF_data <- calc_PPCF(N, train_data) 
+    ODP_PPCF<-glm(PPCF~OT,family=quasipoisson(link="log"),data=PPCF_data)
+    
+    pred_F<-predict(odp_FC,newdata=newdata,type="response")
+    pred_OT <- calc_pred_OT(odp_FC, N, train_data, newdata, tri.size)
+    
+    pred_payment<-predict(ODP_PPCF,newdata=data.frame(OT=pred_OT),type="response",se.fit=TRUE)
+    mu<-pred_payment$fit*pred_F
+    phi<-mean((pred_payment$residual.scale)^2*(pred_F)^2)
+    
+    CDF_PPCF <- pODP(y=y,lambda=mu,phi=phi)
+    return (ifelse(CDF_PPCF == 0, min(CDF_PPCF[CDF_PPCF!=0]), CDF_PPCF))
+}
+
+mu_PPCF<- function(newdata, train_data, tri.size){
+    
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    odp_FC<-glm(settle_count~factor(dev),data=train_data,family=quasipoisson(link="log"))
+    PPCF_data <- calc_PPCF(N, train_data) 
+    ODP_PPCF<-glm(PPCF~OT,family=quasipoisson(link="log"),data=PPCF_data)
+    
+    pred_F<-predict(odp_FC,newdata=newdata,type="response")
+    pred_OT <- calc_pred_OT(odp_FC, N, train_data, newdata, tri.size)
+    
+    pred_payment<-predict(ODP_PPCF,newdata=data.frame(OT=pred_OT),type="response",se.fit=TRUE)
+    mu<-pred_payment$fit*pred_F
+    return(mu)
+}
+
+sim_PPCF<-function(newdata, train_data, tri.size){
+    
+    ### Claims Count Information
+    fit_nc<-glm(notif_count~factor(origin)+factor(dev),data=train_data,family=quasipoisson(link="log"))
+    ##Obtain Estimated notification claims count for each accident period: Nk
+    N<-c()
+    N[1]<-sum(train_data[train_data$origin==1,]$notif_count)
+    for (i in 2:tri.size){
+      N[i]<- sum(train_data[train_data$origin==i,]$notif_count) + 
+             sum(round(predict(fit_nc,newdata=newdata[newdata$origin==i,],type="response"),0)) 
+    }
+    
+    odp_FC<-glm(settle_count~factor(dev),data=train_data,family=quasipoisson(link="log"))
+    PPCF_data <- calc_PPCF(N, train_data) 
+    ODP_PPCF<-glm(PPCF~OT,family=quasipoisson(link="log"),data=PPCF_data)
+    
+    pred_F<-predict(odp_FC,newdata=newdata,type="response")
+    pred_OT <- calc_pred_OT(odp_FC, N, train_data, newdata, tri.size)
+    
+    pred_payment<-predict(ODP_PPCF,newdata=data.frame(OT=pred_OT),type="response",se.fit=TRUE)
+    mu<-pred_payment$fit*pred_F
+    phi<-(pred_payment$residual.scale)^2*(pred_F)^2
+    simy<-replicate(1, rtweedie(length(mu), xi=1,mu=mu,phi=phi))
+    return(simy)
+}
+
+```
+
+
+```{r}
+### Perform the simulations: 
+
+### Create a list to store the simulated component models:
+components_list <- list()
+
+
+for (sim in 1:n.sims) {
+    # Train on train, test on valid-test
+    past_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-past-data.csv', tri.size, sim))
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    past_data$tau_Ga<-5
+    past_data$tau_LN<-5
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    
+    #### Partition the data into training and validation set #####
+    insample_data <- full_data[full_data$calendar <= 41,]
+    train_val <- train_val_split(insample_data)
+    
+    ############################################################
+    ## Create Fit Components ###################################
+    ############################################################
+    
+    train_data <- train_val$train
+    train_all_data <- rbind(train_val$train, train_val$valid)
+    
+    #### Fit all the component models used in the paper: ######
+    invisible(capture.output({
+    ODP_GLM<-glm(formula=aggregate_claims~factor(origin)+factor(dev),family=quasipoisson(link="log"),data=train_data)
+    Ga_optimTau<-gamlss(formula=(aggregate_claims+tau_Ga)~factor(origin)+factor(dev),data=train_data,family=GA(mu.link="log", sigma.link ="log"))
+    LN_optimTau<-gamlss(formula=(aggregate_claims+tau_LN)~factor(origin)+factor(dev),data=train_data,family=LOGNO(mu.link="identity",sigma.link="log"))
+    gamma_1<-gamlss(formula=aggregate_claims~factor(origin)+factor(dev),nu.formula=~as.numeric(as.character(dev)),data=train_data,family=ZAGA(mu.link="log",sigma.link = "log", nu.link = "logit"))
+    LN_1<-gamlss.inf::gamlssZadj(y=aggregate_claims,mu.formula = ~factor(origin)+factor(dev),xi0.formula=~as.numeric(as.character(dev)),data=train_data,family=LOGNO(mu.link="identity",sigma.link="log"))
+    glm_ODP_Ho_tr1<-glm(formula=aggregate_claims~factor(origin)+log(dev)+dev,family=quasipoisson(link="log"),data=train_data)
+    glm_Ga_Ho_tr1<-gamlss(formula=(aggregate_claims+tau_Ga)~factor(origin)+log(dev)+dev,data=train_data,family=GA(mu.link="log", sigma.link ="log"))
+    glm_LN_Ho_tr1<-gamlss(formula=(aggregate_claims+tau_LN)~factor(origin)+log(dev)+dev,data=train_data,family=LOGNO(mu.link="identity",sigma.link="log"))
+    glm_ODP_Cal_tr1<-glm(formula=aggregate_claims~factor(dev)+calendar,family=quasipoisson(link="log"),data=train_data)
+    glm_Ga_Cal_tr1<-gamlss(formula=(aggregate_claims+tau_Ga)~factor(dev)+calendar,data=train_data,family=GA(mu.link="log", sigma.link ="log"))
+    glm_LN_Cal_tr1<-gamlss(formula=(aggregate_claims+tau_LN)~factor(dev)+calendar,data=train_data,family=LOGNO(mu.link="identity",sigma.link="log"))
+    sp_Normal<-gamlss(formula=aggregate_claims~scs(origin)+scs(dev),data=train_data,family=NO(),trace=FALSE)
+    sp_Gamma<-gamlss(formula=(aggregate_claims+tau_Ga)~scs(origin)+scs(dev),data=train_data,family=GA(mu.link="log", sigma.link ="log"),trace=FALSE)
+    sp_LN<-gamlss(formula=(aggregate_claims+tau_LN)~scs(origin)+scs(dev),data=train_data,family=LOGNO(mu.link="identity",sigma.link="log"),trace=FALSE)
+    gamlss_GA<-gamlss(formula=(aggregate_claims+tau_Ga)~scs(as.numeric(as.character(origin)))+scs(as.numeric(as.character(dev))),data=train_data,sigma.formula=~cs(as.numeric(as.character(dev))),family=GA(mu.link="log", sigma.link ="log"),trace=FALSE)
+    gamlss_LN<-gamlss(formula=(aggregate_claims+tau_LN)~scs(as.numeric(as.character(origin)))+scs(as.numeric(as.character(dev))),data=train_data,sigma.formula=~cs(as.numeric(as.character(dev))),family=LOGNO(mu.link="identity",sigma.link="log"),trace=FALSE)
+    
+    ODP_GLM_full <- update(ODP_GLM, data = train_all_data)
+    Ga_optimTau_full <- update(Ga_optimTau, data = train_all_data)
+    LN_optimTau_full <- update(LN_optimTau, data = train_all_data)
+    gamma_1_full <- update(gamma_1, data = train_all_data)
+    LN_1_full <- update(LN_1, data = train_all_data)
+    glm_ODP_Ho_tr1_full <- update(glm_ODP_Ho_tr1, data = train_all_data)
+    glm_Ga_Ho_tr1_full <- update(glm_Ga_Ho_tr1, data = train_all_data)
+    glm_LN_Ho_tr1_full <- update(glm_LN_Ho_tr1, data = train_all_data)
+    glm_ODP_Cal_tr1_full <- update(glm_ODP_Cal_tr1, data = train_all_data)
+    glm_Ga_Cal_tr1_full <- update(glm_Ga_Cal_tr1, data = train_all_data)
+    glm_LN_Cal_tr1_full <- update(glm_LN_Cal_tr1, data = train_all_data)
+    sp_Normal_full <- update(sp_Normal, data = train_all_data)
+    sp_Gamma_full <- update(sp_Gamma, data = train_all_data)
+    sp_LN_full <- update(sp_LN, data = train_all_data)
+    gamlss_GA_full <- update(gamlss_GA, data = train_all_data)
+    gamlss_LN_full <- update(gamlss_LN, data = train_all_data)
+    }))
+    
+    
+    # Custom model class used for PPCI and PPCF
+    ODP_PPCI<-custom_model(aggregate_claims~., data=train_data)
+    ODP_PPCF<-custom_model(aggregate_claims~., data=train_data)
+    
+    ODP_PPCI_full <- update(ODP_PPCI, data = past_data)
+    ODP_PPCF_full <- update(ODP_PPCF, data = past_data)
+    
+    
+    ###########################################################
+    # Create ADLP Components List #############################
+    ###########################################################
+    
+    ODP_GLM_component = adlp_component(
+    model_train = ODP_GLM, 
+    model_full = ODP_GLM_full, 
+    calc_dens = dens_ODP_GLM,
+    calc_cdf = CDF_ODP_GLM,
+    calc_mu = mu_ODP_GLM,
+    sim_fun = sim_ODP_GLM
+)
+
+Ga_optimTau_component = adlp_component(
+    model_train = Ga_optimTau, 
+    model_full = Ga_optimTau_full, 
+    calc_dens = dens_GA,
+    calc_cdf = CDF_GA,
+    calc_mu = mu_GA,
+    sim_fun = sim_GA,
+    tau = 5
+)
+
+LN_optimTau_component = adlp_component(
+    model_train = LN_optimTau, 
+    model_full = LN_optimTau_full, 
+    calc_dens = dens_LN,
+    calc_cdf = CDF_LN,
+    calc_mu = mu_LN,
+    sim_fun = sim_LN,
+    tau = 5
+)
+
+gamma_1_component = adlp_component(
+    model_train = gamma_1, 
+    model_full = gamma_1_full, 
+    calc_dens = dens_ZAGA,
+    calc_cdf = CDF_ZAGA,
+    calc_mu = mu_ZAGA,
+    sim_fun =sim_ZAGA
+)
+
+LN_1_component = adlp_component(
+    model_train = LN_1, 
+    model_full = LN_1_full, 
+    calc_dens = dens_ZALN,
+    calc_cdf = CDF_ZALN,
+    calc_mu = mu_ZALN,
+    sim_fun = sim_ZALN
+)
+
+glm_ODP_Ho_tr1_component = adlp_component(
+    model_train = glm_ODP_Ho_tr1, 
+    model_full = glm_ODP_Ho_tr1_full, 
+    calc_dens = dens_ODP_GLM,
+    calc_cdf = CDF_ODP_GLM,
+    calc_mu = mu_ODP_GLM,
+    sim_fun = sim_ODP_GLM
+)
+
+glm_Ga_Ho_tr1_component = adlp_component(
+    model_train = glm_Ga_Ho_tr1, 
+    model_full = glm_Ga_Ho_tr1_full, 
+    calc_dens = dens_GA,
+    calc_cdf = CDF_GA,
+    calc_mu = mu_GA,
+    sim_fun = sim_GA,
+    tau = 5
+)
+
+glm_LN_Ho_tr1_component = adlp_component(
+    model_train = glm_LN_Ho_tr1, 
+    model_full = glm_LN_Ho_tr1_full, 
+    calc_dens = dens_LN,
+    calc_cdf = CDF_LN,
+    calc_mu = mu_LN,
+    sim_fun = sim_LN,
+    tau = 5
+)
+
+glm_ODP_Cal_tr1_component = adlp_component(
+    model_train = glm_ODP_Cal_tr1, 
+    model_full = glm_ODP_Cal_tr1_full, 
+    calc_dens = dens_ODP_GLM,
+    calc_cdf = CDF_ODP_GLM,
+    calc_mu = mu_ODP_GLM,
+    sim_fun = sim_ODP_GLM
+)
+
+glm_Ga_Cal_tr1_component = adlp_component(
+    model_train = glm_Ga_Cal_tr1, 
+    model_full = glm_Ga_Cal_tr1_full, 
+    calc_dens = dens_GA,
+    calc_cdf = CDF_GA,
+    calc_mu = mu_GA,
+    sim_fun = sim_GA,
+    tau = 5
+)
+
+glm_LN_Cal_tr1_component = adlp_component(
+    model_train = glm_LN_Cal_tr1, 
+    model_full = glm_LN_Cal_tr1_full, 
+    calc_dens = dens_LN,
+    calc_cdf = CDF_LN,
+    calc_mu = mu_LN,
+    sim_fun = sim_LN,
+    tau = 5
+)
+
+sp_Normal_component = adlp_component(
+    model_train = sp_Normal, 
+    model_full = sp_Normal_full, 
+    calc_dens = dens_NO,
+    calc_cdf = CDF_Normal,
+    calc_mu = mu_Normal,
+    sim_fun = sim_NO
+)
+
+sp_Gamma_component = adlp_component(
+    model_train = sp_Gamma, 
+    model_full = sp_Gamma_full, 
+    calc_dens = dens_GA,
+    calc_cdf = CDF_GA,
+    calc_mu = mu_GA,
+    sim_fun = sim_GA,
+    tau = 5
+)
+
+sp_LN_component = adlp_component(
+    model_train = sp_LN, 
+    model_full = sp_LN_full, 
+    calc_dens = dens_LN,
+    calc_cdf = CDF_LN,
+    calc_mu = mu_LN,
+    sim_fun = sim_LN,
+    tau = 5
+)
+
+gamlss_GA_component = adlp_component(
+    model_train = gamlss_GA, 
+    model_full = gamlss_GA_full, 
+    calc_dens = dens_GA_Gamlss,
+    calc_cdf = CDF_GA_Gamlss,
+    calc_mu = mu_GA_Gamlss,
+    sim_fun = sim_GA_Gamlss,
+    tau = 5
+)
+
+gamlss_LN_component = adlp_component(
+    model_train = gamlss_LN, 
+    model_full = gamlss_LN_full, 
+    calc_dens = dens_LN_Gamlss,
+    calc_cdf = CDF_LN_Gamlss,
+    calc_mu = mu_LN_Gamlss,
+    sim_fun = sim_LN_Gamlss,
+    tau = 5
+)
+
+
+ODP_PPCI_component = adlp_component(
+    model_train = ODP_PPCI,
+    model_full = ODP_PPCI_full,
+    calc_dens = dens_PPCI,
+    calc_cdf = CDF_PPCI,
+    calc_mu = mu_PPCI,
+    sim_fun = sim_PPCI,
+    train_data = train_data,
+    tri.size = 40
+)
+
+ODP_PPCF_component = adlp_component(
+    model_train = ODP_PPCF,
+    model_full = ODP_PPCF_full,
+    calc_dens = dens_PPCF,
+    calc_cdf = CDF_PPCF,
+    calc_mu = mu_PPCF,
+    sim_fun = sim_PPCF,
+    train_data = train_data,
+    tri.size = 40
+)
+
+components_list[[sim]] <- adlp_components(
+    ODP_GLM = ODP_GLM_component,
+    Ga_optimTau = Ga_optimTau_component,
+    LN_optimTau = LN_optimTau_component,
+    gamma_1 = gamma_1_component,
+    LN_1 = LN_1_component,
+    glm_ODP_Ho_tr1 = glm_ODP_Ho_tr1_component,
+    glm_Ga_Ho_tr1 = glm_Ga_Ho_tr1_component,
+    glm_LN_Ho_tr1 = glm_LN_Ho_tr1_component,
+    glm_ODP_Cal_tr1 = glm_ODP_Cal_tr1_component,
+    glm_Ga_Cal_tr1 = glm_Ga_Cal_tr1_component,
+    glm_LN_Cal_tr1 = glm_LN_Cal_tr1_component,
+    sp_Normal = sp_Normal_component,
+    sp_Gamma = sp_Gamma_component,
+    sp_LN = sp_LN_component,
+    gamlss_GA = gamlss_GA_component,
+    gamlss_LN = gamlss_LN_component,
+    ODP_PPCI = ODP_PPCI_component,
+    ODP_PPCF = ODP_PPCF_component
+)
+        
+    
+
+
+}
+```
+
+
+
+
+
+# Fit ADLP
+
+## Defining custom partition functions that are used in the paper
+
+```{r}
+split_points_40 <- c(3, 4, 5, 7, 9, 11, 13, 14, 15, 16, 17, 18, 19, 23, 26, 28, 31, 33)
+
+
+        par1_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[1]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[1] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+        }
+        
+        par2_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[2]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[2] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+        }
+        
+        par3_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[3]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[3] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+        }
+         par4_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[4]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[4] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+         }
+         
+          par5_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[5]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[5] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+          }
+          
+           par6_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[6]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[6] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+           }
+           
+            par7_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[7]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[7] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+            }
+             par8_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[8]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[8] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+             }
+             
+              par9_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[9]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[9] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+              }
+               par10_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[10]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[10] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+               }
+               
+                par11_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[11]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[11] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+                }
+                 par12_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[12]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[12] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+                 }
+                 
+                  par13_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[13]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[13] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+                  }
+                  
+                   par14_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[14]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[14] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+        }
+        
+                    par15_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[15]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[15] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+                    }
+                     par16_2_40 <- function(df) {
+            return (list(
+                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[16]), ],
+                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[16] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+            ))
+                     }
+                    par17_2_40 <- function(df) {
+                                return (list(
+                                    subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[17]), ],
+                                    subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[17] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+                                ))
+                      }
+                par18_2_40 <- function(df) {
+                            return (list(
+                                subset1 = df[(as.numeric(as.character(df$origin)) >= 1) & (as.numeric(as.character(df$origin)) <= split_points_40[18]), ],
+                                subset2 = df[(as.numeric(as.character(df$origin)) >= split_points_40[18] + 1) & (as.numeric(as.character(df$origin)) <= 40), ]
+                            ))
+                                }
+                
+```
+
+
+## Fit all ADLP ensembles used in the paper:
+
+```{r}
+## Define a list to store the fitted SLP ensembles: 
+
+fit_0_40 <- list()
+
+## Perform the simulations:
+
+for (sim in 1:n.sims) {
+
+    components <- components_list[[sim]]
+
+        fit_0_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = adlp_partition_none
+        )
+}
+
+
+
+```
+
+
+```{r}
+## Define a list to store the fitted ADLP ensembles: 
+
+fit_1_40 <- list()
+fit_2_40 <- list()
+fit_3_40 <- list()
+fit_4_40 <- list()
+fit_5_40 <- list()
+fit_6_40 <- list()
+fit_7_40 <- list()
+fit_8_40 <- list()
+fit_9_40 <- list()
+fit_10_40 <- list()
+fit_11_40 <- list()
+fit_12_40 <- list()
+fit_13_40 <- list()
+fit_14_40 <- list()
+fit_15_40 <- list()
+fit_16_40 <- list()
+fit_17_40 <- list()
+fit_18_40 <- list()
+
+## Perform the simulations:
+
+for (sim in 1:n.sims) {
+
+    components <- components_list[[sim]]
+
+        fit_1_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par1_2_40,
+        )
+        
+        fit_2_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par2_2_40,
+        )
+        
+        fit_3_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par3_2_40,
+        )
+        
+        fit_4_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par4_2_40,
+        )
+        
+        fit_5_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par5_2_40,
+        )
+        
+        fit_6_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par6_2_40,
+        )
+        
+        fit_7_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par7_2_40,
+        )
+        
+        fit_8_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par8_2_40,
+        )
+        
+        fit_9_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par9_2_40,
+        )
+        
+        fit_10_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par10_2_40,
+        )
+        
+        fit_11_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par11_2_40,
+        )
+        
+        fit_12_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par12_2_40,
+        )
+        
+        fit_13_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par13_2_40,
+        )
+        
+        fit_14_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par14_2_40,
+        )
+        
+        fit_15_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par15_2_40,
+        )
+        
+        fit_16_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par16_2_40,
+        )
+        
+        fit_17_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par17_2_40,
+        )
+        
+        fit_18_40[[sim]] <- adlp(
+            components_lst = components,
+            newdata = train_val$valid,
+            partition_func = par18_2_40,
+        )
+
+}
+
+```
+
+# Model evaluation with proper scoring rules: 
+
+## Log Score: 
+
+Calculate the Log Scores for all the ensembles used in the paper: 
+
+```{r}
+#############################################################################
+## Define a matrix to store the Log Score outputs of the ensemble ###########
+#############################################################################
+
+ensemble_logS_out_fit_1_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_2_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_3_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_4_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_5_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_6_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_7_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_8_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_9_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_10_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_11_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_12_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_13_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_14_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_15_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_16_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_17_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_logS_out_fit_18_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+
+##################################################################
+########### Perform the simulations ##############################
+##################################################################
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41,]
+    ensemble_logS_out_fit_1_40[, sim] <- adlp_logS(fit_1_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_2_40[, sim] <- adlp_logS(fit_2_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_logS_out_fit_3_40[, sim] <- adlp_logS(fit_3_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_logS_out_fit_4_40[, sim] <- adlp_logS(fit_4_40[[sim]], outsample_data, "full")[, -c(1,2)]
+   
+    ensemble_logS_out_fit_5_40[, sim] <- adlp_logS(fit_5_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_logS_out_fit_6_40[, sim] <- adlp_logS(fit_6_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_7_40[, sim] <- adlp_logS(fit_7_40[[sim]], outsample_data, "full")[, -c(1,2)]
+   
+    ensemble_logS_out_fit_8_40[, sim] <- adlp_logS(fit_8_40[[sim]], outsample_data, "full")[, -c(1,2)]
+     
+    ensemble_logS_out_fit_9_40[, sim] <- adlp_logS(fit_9_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_10_40[, sim] <- adlp_logS(fit_10_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_logS_out_fit_11_40[, sim] <- adlp_logS(fit_11_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_12_40[, sim] <- adlp_logS(fit_12_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_13_40[, sim] <- adlp_logS(fit_13_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_14_40[, sim] <- adlp_logS(fit_14_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_15_40[, sim] <- adlp_logS(fit_15_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_16_40[, sim] <- adlp_logS(fit_16_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_17_40[, sim] <- adlp_logS(fit_17_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_logS_out_fit_18_40[, sim] <- adlp_logS(fit_18_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+}
+```
+
+```{r}
+### Calculate the Log score for SLP:
+ensemble_logS_out_fit_0_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_logS_out_fit_0_40[, sim] <- adlp_logS(fit_0_40[[sim]], outsample_data, "full")[, -c(1,2)]
+}
+
+
+```
+
+
+Plot the average Log-score by partition ensemble:
+
+```{r}
+ Mean_LS <- c(mean(ensemble_logS_out_fit_0_40),
+              mean(ensemble_logS_out_fit_1_40),
+                     mean(ensemble_logS_out_fit_2_40),
+                     mean(ensemble_logS_out_fit_3_40),
+                     mean(ensemble_logS_out_fit_4_40),
+                     mean(ensemble_logS_out_fit_5_40),
+                     mean(ensemble_logS_out_fit_6_40),
+                     mean(ensemble_logS_out_fit_7_40),
+                     mean(ensemble_logS_out_fit_8_40),
+                     mean(ensemble_logS_out_fit_9_40),
+                     mean(ensemble_logS_out_fit_10_40),
+                     mean(ensemble_logS_out_fit_11_40),
+                     mean(ensemble_logS_out_fit_12_40),
+                     mean(ensemble_logS_out_fit_13_40),
+                     mean(ensemble_logS_out_fit_14_40),
+                     mean(ensemble_logS_out_fit_15_40),
+                     mean(ensemble_logS_out_fit_16_40),
+                     mean(ensemble_logS_out_fit_17_40),
+                     mean(ensemble_logS_out_fit_18_40))
+```
+
+
+
+```{r}
+plot(x = c(0,split_points_40), y = Mean_LS, main = "Mean Log-score", xlab = "Split points", ylab = "Mean Log Score")
+points(x = 0 , y = mean(ensemble_logS_out_fit_0_40), col = "grey", pch = 19)
+```
+
+
+
+## CRPS
+
+```{r}
+#############################################################################
+## Define a matrix to store the CRPS outputs of the ensemble ###########
+#############################################################################
+
+ensemble_CRPS_out_fit_0_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_1_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_2_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_3_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_4_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_5_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_6_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_7_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_8_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_9_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_10_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_11_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_12_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_13_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_14_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_15_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_16_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_17_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+ensemble_CRPS_out_fit_18_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+
+##################################################################
+########### Perform the simulations ##############################
+##################################################################
+n.sims
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_CRPS_out_fit_0_40[, sim] <- adlp_CRPS(fit_0_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_1_40[, sim] <- adlp_CRPS(fit_1_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_2_40[, sim] <- adlp_CRPS(fit_2_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_CRPS_out_fit_3_40[, sim] <- adlp_CRPS(fit_3_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_CRPS_out_fit_4_40[, sim] <- adlp_CRPS(fit_4_40[[sim]], outsample_data, "full")[, -c(1,2)]
+   
+    ensemble_CRPS_out_fit_5_40[, sim] <- adlp_CRPS(fit_5_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_CRPS_out_fit_6_40[, sim] <- adlp_CRPS(fit_6_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_7_40[, sim] <- adlp_CRPS(fit_7_40[[sim]], outsample_data, "full")[, -c(1,2)]
+   
+    ensemble_CRPS_out_fit_8_40[, sim] <- adlp_CRPS(fit_8_40[[sim]], outsample_data, "full")[, -c(1,2)]
+     
+    ensemble_CRPS_out_fit_9_40[, sim] <- adlp_CRPS(fit_9_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_10_40[, sim] <- adlp_CRPS(fit_10_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    
+    ensemble_CRPS_out_fit_11_40[, sim] <- adlp_CRPS(fit_11_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_12_40[, sim] <- adlp_CRPS(fit_12_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_13_40[, sim] <- adlp_CRPS(fit_13_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_14_40[, sim] <- adlp_CRPS(fit_14_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_15_40[, sim] <- adlp_CRPS(fit_15_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_16_40[, sim] <- adlp_CRPS(fit_16_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_17_40[, sim] <- adlp_CRPS(fit_17_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    
+    ensemble_CRPS_out_fit_18_40[, sim] <- adlp_CRPS(fit_18_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    print(paste("This is iteration:", "", sim))
+    
+}
+
+```
+
+
+```{r}
+
+Mean_CRPS <- c(mean(ensemble_CRPS_out_fit_1_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_2_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_3_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_4_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_5_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_6_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_7_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_8_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_9_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_10_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_11_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_12_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_13_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_14_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_15_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_16_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_17_40[, 1:n.sims]),
+                     mean(ensemble_CRPS_out_fit_18_40[, 1:n.sims]))
+```
+
+```{r}
+plot(x = split_points_40, y = Mean_CRPS, main = "Mean CRPS", xlab = "Split points", ylab = "Mean CRPS")
+```
+
+# Reserve calculation 
+
+## Prediction of central reserve: 
+
+```{r}
+## Derive the true reserve:
+
+true_reserve <- c() 
+    
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41, ]
+    ## Calculate the true reserve: 
+    true_reserve[sim] <- sum(outsample_data$aggregate_claims)
+    
+
+}
+
+```
+
+
+```{r}
+
+reserve_0_40 <- c()
+reserve_12_40 <- c()
+    
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41, ]
+    
+    ## Calculate the predicted mean for the selected ADLP ensemble and SLP in the paper: 
+    res_12_40 <- predict.adlp(fit_12_40[[sim]], outsample_data)
+    res_0_40 <- predict.adlp(fit_0_40[[sim]], outsample_data)
+    
+    ## Calculate the aggregate reserve: 
+    reserve_12_40[sim] <- sum(res_12_40$ensemble_mu)
+    reserve_0_40[sim] <- sum(res_0_40$ensemble_mu)
+    
+
+}
+
+    
+```
+
+
+```{r}
+## Plot the distribution of the central relative reserve bias: 
+
+central_reserve_estimate <- cbind(reserve_0_40, reserve_12_40)
+relative_diff_centralBias <- (central_reserve_estimate-true_reserve)/true_reserve
+
+colnames(relative_diff_centralBias) = c("SLP", "ADLP 12")
+
+boxplot(relative_diff_centralBias, main = "Distribution of central relative reserve bias")
+
+```
+
+
+## Simulation of risk margins: 
+
+```{r}
+library(tidyverse)
+sim_reserve_0_40_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
+sim_reserve_12_40_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
+
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-5
+    full_data$tau_LN<-5
+    outsample_data <- full_data[full_data$calendar > 41, ]
+    
+    
+    ## Simulate the reserves: 
+    sim_reserve_0_40 <- adlp_simulate(1000, fit_0_40[[sim]], outsample_data) %>% 
+        group_by(sim) %>% 
+        summarise(total = sum(simulation))
+    
+    sim_reserve_12_40 <- adlp_simulate(1000, fit_12_40[[sim]], outsample_data) %>% 
+        group_by(sim) %>% 
+        summarise(total = sum(simulation))
+    
+    ## Store to the matrices:
+    
+    sim_reserve_0_40_mat[, sim] <- sim_reserve_0_40$total
+    sim_reserve_12_40_mat[, sim] <- sim_reserve_12_40$total
+    
+    #print(paste("This is iteration:", "", sim))
+    
+}
+
+```
+
+
+
+```{r}
+## Calculate the 75 quantile reserve bias: 
+
+quantile_res_75_quantile <-apply(sim_reserve_12_40_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
+
+quantile_res_75_quantile_bias <- (quantile_res_75_quantile-quantile(true_reserve, 0.75))/quantile(true_reserve, 0.75)
+
+
+boxplot(quantile_res_75_quantile_bias, main = "Distribution of relative reserve bias at the 75th quantile")
+
+```
+
+
+
+
+
+
+
+
+
+
+

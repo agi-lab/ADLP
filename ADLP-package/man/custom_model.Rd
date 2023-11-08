@@ -19,5 +19,5 @@ Function to define basic functionality needed for a custom model that does
 not fit the general framework of models that align with \link[adlp_component]{adlp_component}
 }
 \details{
-Custom model should support the S3 method `formula` and `update`.
+Custom model should support the S3 method \code{formula} and \code{update}.
 }

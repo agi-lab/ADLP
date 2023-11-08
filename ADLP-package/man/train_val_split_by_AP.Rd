@@ -7,20 +7,20 @@
 train_val_split_by_AP(df, accident_periods, max_dev_periods, test = FALSE)
 }
 \arguments{
-\item{df}{Claims Triangle and other information. `data.frame` format of
+\item{df}{Claims Triangle and other information. \code{data.frame} format of
 claims and related information for each cell. Dataframe will have columns
- `origin` and `dev` as columns 1 and 2 respectively.}
+\code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
 \item{accident_periods}{Vector of accident periods. Will be equivalent to
-`1:Triangle_Size`}
+\code{1:Triangle_Size}}
 
 \item{max_dev_periods}{Vector of development periods}
 
-\item{test}{Returns the test set if `TRUE`}
+\item{test}{Returns the test set if \code{TRUE}}
 }
 \value{
-List containing `$train`, `$valid`, `$test`, which should partition
- the input `df`.
+List containing \verb{$train}, \verb{$valid}, \verb{$test}, which should partition
+the input \code{df}.
 }
 \description{
 Function for training/validation splitting.

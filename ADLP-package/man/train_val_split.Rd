@@ -7,15 +7,15 @@
 train_val_split(df, ...)
 }
 \arguments{
-\item{df}{Claims Triangle and other information. `data.frame` format of
+\item{df}{Claims Triangle and other information. \code{data.frame} format of
 claims and related information for each cell. Dataframe will have columns
- `origin` and `dev` as columns 1 and 2 respectively.}
+\code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
 \item{...}{Other parameters used to calculate train/test splitting.}
 }
 \value{
-List containing `$train`, `$valid`, `$test`, which should partition
- the input `df`.
+List containing \verb{$train}, \verb{$valid}, \verb{$test}, which should partition
+the input \code{df}.
 }
 \description{
 General framework for any user-defined training/validation/testing split of
@@ -23,6 +23,6 @@ claims triangle data. The ADLP package contains three default splitting algorith
 }
 \seealso{
 \link[train_val_split_by_AP]{train_val_split_by_AP},
- \link[train_val_split_method1]{train_val_split_method1},
- \link[train_val_split_method2]{train_val_split_method2}
+\link[train_val_split_method1]{train_val_split_method1},
+\link[train_val_split_method2]{train_val_split_method2}
 }

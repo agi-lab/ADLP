@@ -159,8 +159,8 @@ calc_adlp_component <- function(component, newdata,
 #'
 #' @details
 #' `calc_adlp_component_lst` is a wrapper for `calc_adlp_component` for each
-#' component in the list `components_lst`. This wrapper also allows signals the
-#' component that casuses and error if occuring downstream.
+#' component in the list `components_lst`. This wrapper also contains functionality
+#' to signal the component that causes an error if it is occuring downstream.
 #'
 #' @export
 calc_adlp_component_lst <- function(

@@ -7,16 +7,16 @@
 train_val_split_method2(df, tri.size, val_ratio, test = FALSE)
 }
 \arguments{
-\item{df}{Claims Triangle and other information. `data.frame` format of
+\item{df}{Claims Triangle and other information. \code{data.frame} format of
 claims and related information for each cell. Dataframe will have columns
- `origin` and `dev` as columns 1 and 2 respectively.}
+\code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
 \item{tri.size}{Triangle size.}
 
 \item{val_ratio}{Value between 0 and 1 as the approximate size of validaiton
 set.}
 
-\item{test}{Returns the test set if `TRUE` .}
+\item{test}{Returns the test set if \code{TRUE} .}
 }
 \description{
 Function for training/validation splitting.
@@ -24,7 +24,7 @@ Function for training/validation splitting.
 \details{
 Approximates the validation set by defining the training set as the cells
 below the function \eqn{((b^{1/a} - x^{1/a})^a)}. Where \eqn{b} is equal to
-the triangle size and \eqn{a} is optimised to best fit `val_ratio`.
+the triangle size and \eqn{a} is optimised to best fit \code{val_ratio}.
 
 The training set is therefore cells outside of this period but within the
 upper triangle. The test set is all observations in the lower triangle.

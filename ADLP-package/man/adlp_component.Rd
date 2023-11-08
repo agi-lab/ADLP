@@ -34,26 +34,26 @@ related functions to run.}
 \item{sim_fun}{function to simulate new from}
 }
 \value{
-Object of class `adlp_component`
+Object of class \code{adlp_component}
 }
 \description{
 Class to store component models and related functions required for ADLP
 estimation, prediction and goodness of fit.
 }
 \details{
-Component models `model_train` and `model_full` are designed to be objects of
-class `glm`, `lm`, or similar. The models would desirably have a S3 method for
+Component models \code{model_train} and \code{model_full} are designed to be objects of
+class \code{glm}, \code{lm}, or similar. The models would desirably have a S3 method for
 `formula. For models that do not fit under this umbrella,
 see \link[custom_model]{custom_model}. For a potential list of candidate models,
 one might refer to Avanzi, Li, Wong and Xian (2022).
 
 Functions as assumed to have the following parameter naming convention:
 \itemize{
- \item{`y` as the response variable}
- \item{`model` as the modeling object `model_train` or `model_full`}
- \item{`newdata` to designate new data}
+\item{\code{y} as the response variable}
+\item{\code{model} as the modeling object \code{model_train} or \code{model_full}}
+\item{\code{newdata} to designate new data}
 }
-Other inputs not in this list will need to be intialised with the `adlp_component`
+Other inputs not in this list will need to be intialised with the \code{adlp_component}
 }
 \references{
 Avanzi, B., Li, Y., Wong, B., & Xian, A. (2022). Ensemble distributional forecasting for insurance loss reserving. arXiv preprint arXiv:2206.08541.

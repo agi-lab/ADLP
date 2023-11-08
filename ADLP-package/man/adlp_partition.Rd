@@ -3,43 +3,47 @@
 \name{adlp_partition}
 \alias{adlp_partition}
 \alias{adlp_partition_none}
-\alias{adlp_parition_ap}
-\title{Accident and Development period Adjusted Linear Pools Parition function}
+\alias{adlp_partition_ap}
+\title{Accident and Development period Adjusted Linear Pools partition function}
 \usage{
 adlp_partition(df, ...)
 
 adlp_partition_none(df)
 
-adlp_parition_ap(df, tri.size, size = 1, weights = rep(1, size))
+adlp_partition_ap(df, tri.size, size = 1, weights = rep(1, size))
 }
 \arguments{
 \item{df}{data.frame format of claims and related information for each cell.
-Dataframe will have columns `origin` and `dev` as columns 1 and 2 respectively.}
+Dataframe will have columns \code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
 \item{tri.size}{Triangle size in claims}
 
-\item{size}{Number of paritions}
+\item{size}{Number of partitions}
 
 \item{weights}{a vector of weights for the size of each partition.}
 
-\item{...}{Other parameters used to calculate ADLP paritions}
+\item{...}{Other parameters used to calculate ADLP partitions}
 }
 \value{
-List containing the `df` as a result of the partitions.
+List containing the \code{df} as a result of the partitions.
 }
 \description{
-General framework for any user-defined function for paritions of
+General framework for any user-defined function for partitions of
 claims triangle data.
 }
 \details{
-`adlp_partition_none` is the default functionality with no paritions. This is
+\code{adlp_partition_none} is the default functionality with no partitions. This is
 equivalent to the standard linear pooling.
 
-`adlp_parition_ap` will partition the claims triangle by accident period,
+\code{adlp_partition_ap} will partition the claims triangle by accident period,
 Where the choice of accident period to partition will be determined to most
-closely resemble the desired `weights`.
+closely resemble the desired \code{weights}.
+
+The choice of accident period relies on a greedy algorithm that aims to find the
+accident period that provides the amount of cells that is larger or equal to the
+desired split.
 }
 \seealso{
 \link[adlp_partition_none]{adlp_partition_none},
- \link[adlp_parition_ap]{adlp_parition_ap}
+\link[adlp_partition_ap]{adlp_partition_ap}
 }

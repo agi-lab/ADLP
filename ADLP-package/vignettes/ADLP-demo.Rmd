@@ -254,7 +254,7 @@ fit1 <- adlp(
 fit2 <- adlp(
     components_lst = components,
     newdata = valid_data,
-    partition_func = ADLP::adlp_parition_ap,
+    partition_func = ADLP::adlp_partition_ap,
     tri.size = 40,
     size = 3,
     weights = c(3, 1, 2)

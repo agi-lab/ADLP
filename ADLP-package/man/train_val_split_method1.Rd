@@ -7,27 +7,27 @@
 train_val_split_method1(df, tri.size, val_ratio, test = FALSE)
 }
 \arguments{
-\item{df}{Claims Triangle and other information. `data.frame` format of
+\item{df}{Claims Triangle and other information. \code{data.frame} format of
 claims and related information for each cell. Dataframe will have columns
- `origin` and `dev` as columns 1 and 2 respectively.}
+\code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
 \item{tri.size}{Triangle size.}
 
 \item{val_ratio}{Value between 0 and 1 as the approximate size of validaiton
 set.}
 
-\item{test}{Returns the test set if `TRUE` .}
+\item{test}{Returns the test set if \code{TRUE} .}
 }
 \value{
-List containing `$train`, `$valid`, `$test`, which should partition
- the input `df`.
+List containing \verb{$train}, \verb{$valid}, \verb{$test}, which should partition
+the input \code{df}.
 }
 \description{
 Function for training/validation splitting.
 }
 \details{
-Approximates the validation set by taking the `n` most recent calendar years
-as validation to best fit `val_ratio`.
+Approximates the validation set by taking the \code{n} most recent calendar years
+as validation to best fit \code{val_ratio}.
 
 Validation set is therefore cells outside of this period but within the
 upper triangle. The test set is all observations in the lower triangle.

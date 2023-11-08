@@ -10,7 +10,7 @@
 adlp_components(...)
 }
 \arguments{
-\item{...}{Individual `adlp_components`}
+\item{...}{Individual \code{adlp_components}}
 }
 \description{
 Accident and Development period Adjusted Linear Pools Component Models

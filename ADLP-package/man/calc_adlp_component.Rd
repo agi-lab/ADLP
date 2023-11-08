@@ -22,14 +22,14 @@ calc_adlp_component_lst(
 )
 }
 \arguments{
-\item{component}{Object of class `adlp_component`}
+\item{component}{Object of class \code{adlp_component}}
 
-\item{newdata}{Claims Triangle and other information. `data.frame` format of
+\item{newdata}{Claims Triangle and other information. \code{data.frame} format of
 claims and related information for each cell. Dataframe will have columns
- `origin` and `dev` as columns 1 and 2 respectively.}
+\code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
-\item{y}{Optional vector of `y` to be used in pdf or cdf calculations. Will
-default to the response fetched by `model.frame`.}
+\item{y}{Optional vector of \code{y} to be used in pdf or cdf calculations. Will
+default to the response fetched by \code{model.frame}.}
 
 \item{model}{Whether the training component model or the full component model
 should be used}
@@ -40,9 +40,9 @@ should be used}
 Accident and Development period Adjusted Linear Pools Component Models
 }
 \details{
-Calls the specified function for an object of class `adlp_component`.
+Calls the specified function for an object of class \code{adlp_component}.
 
-`calc_adlp_component_lst` is a wrapper for `calc_adlp_component` for each
-component in the list `components_lst`. This wrapper also allows signals the
-component that casuses and error if occuring downstream.
+\code{calc_adlp_component_lst} is a wrapper for \code{calc_adlp_component} for each
+component in the list \code{components_lst}. This wrapper also contains functionality
+to signal the component that causes an error if it is occuring downstream.
 }

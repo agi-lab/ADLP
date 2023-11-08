@@ -40,6 +40,10 @@ adlp_partition_none <- function(df) {
 #' Where the choice of accident period to partition will be determined to most
 #' closely resemble the desired `weights`.
 #'
+#' The choice of accident period relies on a greedy algorithm that aims to find the
+#' accident period that provides the amount of cells that is larger or equal to the
+#' desired split.
+#'
 #' @export
 adlp_partition_ap <- function(df, tri.size, size = 1, weights = rep(1, size)) {
     if (size == 1) {
@@ -49,7 +53,6 @@ adlp_partition_ap <- function(df, tri.size, size = 1, weights = rep(1, size)) {
     weights <- weights/sum(weights)
     partition_sizes <- weights * tri.size * (tri.size + 1) / 2
 
-    # https://math.stackexchange.com/questions/1417579/largest-triangular-number-less-than-a-given-natural-number
     # Note that below is a greedy algorithm (i.e. will try to find the closest)
     #   fitting triangle from the latest accident years and moves upwards
     accident_periods <- c(-1)
