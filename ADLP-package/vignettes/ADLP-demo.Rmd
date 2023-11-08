@@ -29,8 +29,8 @@ a compatible format for `ADLP`, however any `data.frame` with column 1 titled
 will work. All other columns can be constructed as required for model inputs.
 
 ```{r setup}
-devtools::document()
 library(ADLP)
+if (!require(tidyverse)) install.packages("tidyverse")
 library(tidyverse)
 
 # Import dummy claims dataset from SynthETIC

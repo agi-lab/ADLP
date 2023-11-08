@@ -118,7 +118,7 @@ calc_adlp_component <- function(component, newdata,
     component_model <- component_extract_model(component, model)
 
     if (is.null(y)) {
-        y <- stats::model.frame(formula(component_model), newdata)[, 1]
+        y <- stats::model.frame(stats::formula(component_model), newdata)[, 1]
     }
 
     if (calc == "pdf") {

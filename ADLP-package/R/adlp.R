@@ -189,7 +189,7 @@ adlp_CRPS <- function(adlp, newdata, model = c("train", "full"), lower = 1, uppe
         adlp$components_lst,
         function(component) {
             component_model <- component_extract_model(component, model)
-            stats::model.frame(formula(component_model), newdata)[, 1]
+            stats::model.frame(stats::formula(component_model), newdata)[, 1]
         }
     )
     response_y <- matrix(unlist(response_y), ncol = length(adlp$components_lst))
@@ -267,10 +267,10 @@ adlp_CRPS <- function(adlp, newdata, model = c("train", "full"), lower = 1, uppe
 adlp_simulate <- function(n, adlp, newdata = NULL) {
 
     if (is.null(newdata)) {
-        newdata <- object$data
+        newdata <- adlp$data
     }
 
-    U <- runif(n)
+    U <- stats::runif(n)
     all_sims <- c()
 
     for (i in 1:n) {

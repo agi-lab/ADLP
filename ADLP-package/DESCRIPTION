@@ -22,8 +22,8 @@ Description: Loss reserving generally focuses on identifying a single model that
     Reference: Avanzi B, Li Y, Wong B, Xian A (2023) "Ensemble distributional forecasting for insurance loss reserving" <arXiv:2206.08541>.
 License: GPL-3
 Encoding: UTF-8
-URL: https://github.com/agi-lab/SPLICE
-BugReports: https://github.com/agi-lab/SPLICE/issues
+URL: https://github.com/agi-lab/ADLP
+BugReports: https://github.com/agi-lab/ADLP/issues
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
@@ -31,8 +31,7 @@ Suggests:
     knitr,
     rmarkdown,
     tidyverse,
-    SynthETIC
-VignetteBuilder: knitr
-Depends: 
-    R (>= 2.10),
     SynthETIC (>= 1.0.0)
+VignetteBuilder: knitr
+Depends:
+    R (>= 2.10)
