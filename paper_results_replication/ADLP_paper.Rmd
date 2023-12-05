@@ -17,19 +17,24 @@ This Rmarkdown file seeks to reproduce the key results in the paper "Ensemble di
 
 
 # Package loading: 
+```{r}
+Time_start <- Sys.time()
+```
 
 
 ```{r}
 
 # Load the packages:
-# devtools::document()
+#devtools::document()
 devtools::load_all("../ADLP-package")
+#devtools::document()
 library(gamlss)
 library(gamlss.dist)
 library(gamlss.inf)
 library(tweedie)
 
 ```
+
 
 
 ```{r}
@@ -61,7 +66,7 @@ train_val_split <- function(df) {
 simulate_claims <- T
 
 ## Define the number of simulations and th triangle size
-n.sims <- 100
+n.sims <- 1
 tri.size <-40
 
 ## Install the 'SynthETIC' and the 'ChainLadder' packages if required:
@@ -79,6 +84,11 @@ if (simulate_claims) {source('simulation/simulate_claims.R')}
 # Create component functions
 
 ```{r}
+
+## Define the offsets values used for Gamma and Log-Normal models:
+tau <- 5
+
+## Define the component density and CDF functions 
 
 dODP<-function(y,lambda,phi) {
     z <- ifelse(rep(phi, length(y)) < 1e-6, dpois(floor(y), lambda), dpois(floor(y/phi), floor(lambda/phi))/phi)
@@ -141,7 +151,7 @@ CDF_LN<-function(y, model, newdata){
     pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
     pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
     }))
-    return(pLNO(q=y,mu=pred_mu,sigma=pred_sigma))
+    return(pLNO(q=y+tau,mu=pred_mu,sigma=pred_sigma))
 }
 
 mu_LN<-function(model, newdata, tau){
@@ -176,7 +186,7 @@ CDF_GA<-function(y, model, newdata){
     pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
     pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
     }))
-    return(pGA(q=y,mu=pred_mu,sigma=pred_sigma))
+    return(pGA(q=y+tau,mu=pred_mu,sigma=pred_sigma))
 }
 
 mu_GA<-function(model, newdata, tau){
@@ -323,7 +333,7 @@ CDF_GA_Gamlss<-function(y, model, newdata){
     pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
     pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
     }))
-    return(pGA(q=y,mu=pred_mu,sigma=pred_sigma))
+    return(pGA(q=y+tau,mu=pred_mu,sigma=pred_sigma))
 }
 
 mu_GA_Gamlss<-function(model, newdata, tau){
@@ -358,7 +368,7 @@ CDF_LN_Gamlss<-function(y, model, newdata){
     pred_mu<-predict(model,what="mu",newdata=newdata,type="response")
     pred_sigma<-predict(model,what="sigma",newdata=newdata,type="response")
     }))
-    return(pLNO(q=y,mu=pred_mu,sigma=pred_sigma))
+    return(pLNO(q=y+tau,mu=pred_mu,sigma=pred_sigma))
 }
 
 mu_LN_Gamlss<-function(model, newdata, tau){
@@ -387,7 +397,7 @@ sim_LN_Gamlss<-function(model, newdata, tau){
 vlookup_N_i <- function(N, data){
     
     N_rep <- c()
-    occurence_years <- as.numeric(data$origin)
+    occurence_years <- as.numeric(as.character(data$origin))
     
     for (i in occurence_years) {
         N_rep <- c(N_rep, N[i])
@@ -1276,6 +1286,7 @@ ensemble_logS_out_fit_18_40 <- matrix(NA, nrow = nrow(full_data[full_data$calend
 ##################################################################
 
 for (sim in 1:n.sims) {
+    set.seed(20200130+sim)
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
     full_data$tau_Ga<-5
     full_data$tau_LN<-5
@@ -1375,6 +1386,7 @@ points(x = 0 , y = mean(ensemble_logS_out_fit_0_40), col = "grey", pch = 19)
 
 ## CRPS
 
+
 ```{r}
 #############################################################################
 ## Define a matrix to store the CRPS outputs of the ensemble ###########
@@ -1406,60 +1418,69 @@ ensemble_CRPS_out_fit_18_40 <- matrix(NA, nrow = nrow(full_data[full_data$calend
 ##################################################################
 n.sims
 for (sim in 1:n.sims) {
+    set.seed(20200130+sim)
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
     full_data$tau_Ga<-5
     full_data$tau_LN<-5
     outsample_data <- full_data[full_data$calendar > 41,]
     
-    ensemble_CRPS_out_fit_0_40[, sim] <- adlp_CRPS(fit_0_40[[sim]], outsample_data, "full")[, -c(1,2)]
-    ensemble_CRPS_out_fit_1_40[, sim] <- adlp_CRPS(fit_1_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ## JL
+    upper_bound <- round(2*max(outsample_data$aggregate_claims),0)
+        
+    ensemble_CRPS_out_fit_0_40[, sim] <- adlp_CRPS(fit_0_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
+    ensemble_CRPS_out_fit_1_40[, sim] <- adlp_CRPS(fit_1_40[[sim]], outsample_data,response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_2_40[, sim] <- adlp_CRPS(fit_2_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_2_40[, sim] <- adlp_CRPS(fit_2_40[[sim]], outsample_data,response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
     
-    ensemble_CRPS_out_fit_3_40[, sim] <- adlp_CRPS(fit_3_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_3_40[, sim] <- adlp_CRPS(fit_3_40[[sim]], outsample_data,response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
     
-    ensemble_CRPS_out_fit_4_40[, sim] <- adlp_CRPS(fit_4_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_4_40[, sim] <- adlp_CRPS(fit_4_40[[sim]], outsample_data,response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
    
-    ensemble_CRPS_out_fit_5_40[, sim] <- adlp_CRPS(fit_5_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_5_40[, sim] <- adlp_CRPS(fit_5_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
     
-    ensemble_CRPS_out_fit_6_40[, sim] <- adlp_CRPS(fit_6_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_6_40[, sim] <- adlp_CRPS(fit_6_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_7_40[, sim] <- adlp_CRPS(fit_7_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_7_40[, sim] <- adlp_CRPS(fit_7_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
    
-    ensemble_CRPS_out_fit_8_40[, sim] <- adlp_CRPS(fit_8_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_8_40[, sim] <- adlp_CRPS(fit_8_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
      
-    ensemble_CRPS_out_fit_9_40[, sim] <- adlp_CRPS(fit_9_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_9_40[, sim] <- adlp_CRPS(fit_9_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_10_40[, sim] <- adlp_CRPS(fit_10_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_10_40[, sim] <- adlp_CRPS(fit_10_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
     
-    ensemble_CRPS_out_fit_11_40[, sim] <- adlp_CRPS(fit_11_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_11_40[, sim] <- adlp_CRPS(fit_11_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_12_40[, sim] <- adlp_CRPS(fit_12_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_12_40[, sim] <- adlp_CRPS(fit_12_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_13_40[, sim] <- adlp_CRPS(fit_13_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_13_40[, sim] <- adlp_CRPS(fit_13_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_14_40[, sim] <- adlp_CRPS(fit_14_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_14_40[, sim] <- adlp_CRPS(fit_14_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_15_40[, sim] <- adlp_CRPS(fit_15_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_15_40[, sim] <- adlp_CRPS(fit_15_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_16_40[, sim] <- adlp_CRPS(fit_16_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_16_40[, sim] <- adlp_CRPS(fit_16_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_17_40[, sim] <- adlp_CRPS(fit_17_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_17_40[, sim] <- adlp_CRPS(fit_17_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     
-    ensemble_CRPS_out_fit_18_40[, sim] <- adlp_CRPS(fit_18_40[[sim]], outsample_data, "full")[, -c(1,2)]
+    ensemble_CRPS_out_fit_18_40[, sim] <- adlp_CRPS(fit_18_40[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
     print(paste("This is iteration:", "", sim))
     
 }
 
 ```
 
+```{r}
+Time_end <- Sys.time()
+Time_end-Time_start
+```
+
 
 ```{r}
-
+n.sims
 Mean_CRPS <- c(mean(ensemble_CRPS_out_fit_1_40[, 1:n.sims]),
                      mean(ensemble_CRPS_out_fit_2_40[, 1:n.sims]),
                      mean(ensemble_CRPS_out_fit_3_40[, 1:n.sims]),
@@ -1483,6 +1504,10 @@ Mean_CRPS <- c(mean(ensemble_CRPS_out_fit_1_40[, 1:n.sims]),
 ```{r}
 plot(x = split_points_40, y = Mean_CRPS, main = "Mean CRPS", xlab = "Split points", ylab = "Mean CRPS")
 ```
+
+
+
+
 
 # Reserve calculation 
 
