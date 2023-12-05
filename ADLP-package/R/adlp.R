@@ -30,7 +30,7 @@
 #' @references Avanzi, B., Li, Y., Wong, B., & Xian, A. (2022). Ensemble distributional forecasting for insurance loss reserving. arXiv preprint arXiv:2206.08541.
 #' @export
 adlp <- function(
-    components_lst, newdata, partition_func, param_tol = 1e-6, ...
+    components_lst, newdata, partition_func, param_tol = 1e-16, ...
 ) {
 
     # Calculate densities
@@ -142,7 +142,7 @@ adlp_dens <- function(adlp, newdata, model = c("train", "full")) {
 #' advantages of Log Score, one might refer to Gneiting and Raftery (2007)
 #'
 #' @export
-adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-8) {
+adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-6) {
     model <- match.arg(model)
     component_dens <- adlp_dens(adlp, newdata, model)
     dens_index <- component_dens[, 1:2]
@@ -156,11 +156,12 @@ adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-8)
 #'
 #' @param adlp Object of class `adlp`
 #' @param newdata Data to perform the function on
+#' @param response_name The column name of the response variable; in string format
 #' @param model Whether the `train` or `full` model should be used in function
 #' @param lower The lower limit to calculate CRPS; the default value is set to be 1
 #' @param upper The upper limit to calculate CRPS; the default value is set to be
 #' twice the maximum value of the response variable in the dataset
-#' @param sample_n The number of values to sample between lower and upper range of
+#' @param sample_n The number of evenly spaced values to sample between lower and upper range of
 #' numeric integration used to calculate CRPS. This sample function is designed to
 #' constrain memory usage during the computation of CRPS,
 #' particularly when dealing with large response variables.
@@ -182,26 +183,22 @@ adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-8)
 #' Gneiting, T., Ranjan, R., 2011. Comparing density forecasts using threshold-and quantile-weighted scoring rules. Journal of Business & Economic Statistics 29 (3), 411–422.
 #'
 #' @export
-adlp_CRPS <- function(adlp, newdata, model = c("train", "full"), lower = 1, upper=NULL, sample_n = 2000) {
+adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), lower = 1, upper=NULL, sample_n = 2000) {
 
     model <- match.arg(model)
-    response_y <- lapply(
-        adlp$components_lst,
-        function(component) {
-            component_model <- component_extract_model(component, model)
-            stats::model.frame(stats::formula(component_model), newdata)[, 1]
-        }
-    )
-    response_y <- matrix(unlist(response_y), ncol = length(adlp$components_lst))
 
     # Default upper is 2x the largest response in model.frame
+
+    response_y <- newdata[, response_name]
+
+
     if (is.null(upper)) {
-        upper <- round(2*max(response_y),0)
+         upper <- round(2*max(response_y),0)
     }
 
-    z <- sample(lower:upper, min(sample_n, upper))
+    # Sample evenly spaced values between the lower and upper bound by using the quantile function:
+    z <- floor(quantile(lower:upper, seq(0, 1, by = 1/sample_n)))[-1]
 
-    #z <- lower:upper
     z <- sort(z)
 
     # Calculate CDF as at lower:upper for each data point
@@ -229,7 +226,9 @@ adlp_CRPS <- function(adlp, newdata, model = c("train", "full"), lower = 1, uppe
     for (k in 1:n.partitions) {
         partition_ind <- rownames(newdata) %in% rownames(out_partitions[[k]])
         w <- ensemble_w[[k]]
-        y <- response_y[partition_ind, ] %*% w
+
+
+        y = out_partitions[[k]][, response_name]
 
         pred_CDF_ensemble <- lapply(
             component_cdfs_lst,

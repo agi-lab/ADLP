@@ -15,7 +15,7 @@ MM_func <- function(w,dat){
 #' @export
 MM_optim <- function(w_init, dat, niter = 500, ...){
     # To avoid taking logs and division of zero densities
-    dat <- dat + 1e-16
+    #dat <- dat + 1e-16
     w <- w_init
     i <- 0
     prev_loss <- -mean(log(dat%*%w_init))
@@ -37,3 +37,5 @@ MM_optim <- function(w_init, dat, niter = 500, ...){
     class(z) <- "mm_optim"
     return(z)
 }
+
+
