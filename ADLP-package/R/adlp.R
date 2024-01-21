@@ -121,7 +121,7 @@ adlp_dens <- function(adlp, newdata, model = c("train", "full")) {
         dens_ij <- c(dens_ij, paste(dens_partitions[[j]]$origin, "-", dens_partitions[[j]]$dev, sep = ""))
     }
 
-    dens_index <- match(dens_ij, data_ij)
+    dens_index <- match(data_ij, dens_ij)
     ensemble_dens <- dens[dens_index]
     ensemble_dens <- cbind(newdata[, 1:2], ensemble_dens)
     ensemble_dens
@@ -249,7 +249,7 @@ adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), 
         crps_ij <- c(crps_ij, paste(out_partitions[[k]]$origin, "-", out_partitions[[k]]$dev, sep = ""))
     }
 
-    crps_index <- match(crps_ij, data_ij)
+    crps_index <- match(data_ij, crps_ij)
     ensemble_crps <- crps[crps_index]
     ensemble_crps <- cbind(newdata[, 1:2], ensemble_crps)
     ensemble_crps
@@ -291,7 +291,7 @@ adlp_simulate <- function(n, adlp, newdata = NULL) {
             sim_ij <- c(sim_ij, paste(sim_partitions[[j]]$origin, "-", sim_partitions[[j]]$dev, sep = ""))
         }
 
-        sim_index <- match(sim_ij, data_ij)
+        sim_index <- match(data_ij, sim_ij)
         simulation <- sims[sim_index]
         simulation <- cbind(list(sim=i), newdata[, 1:2], simulation)
 
