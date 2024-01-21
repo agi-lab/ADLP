@@ -36,7 +36,7 @@ predict.adlp <- function(object, newdata = NULL, ...) {
         mu_ij <- c(mu_ij, paste(mu_partitions[[j]]$origin, "-", mu_partitions[[j]]$dev, sep = ""))
     }
 
-    mu_index <- match(mu_ij, data_ij)
+    mu_index <- match(data_ij, mu_ij)
     ensemble_mu <- mu[mu_index]
     ensemble_mu <- cbind(newdata[, 1:2], ensemble_mu)
     ensemble_mu
