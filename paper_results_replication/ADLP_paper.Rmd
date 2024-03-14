@@ -25,16 +25,32 @@ Time_start <- Sys.time()
 ```{r}
 
 # Load the packages:
-#devtools::document()
 devtools::load_all("../ADLP-package")
 #devtools::document()
 library(gamlss)
 library(gamlss.dist)
 library(gamlss.inf)
 library(tweedie)
-
+library(ggplot2)
 ```
 
+```{r}
+## Define a custom ADLP function to fit the Equally weighted ensemble and BMV:
+adlp_custom <- function(
+    components_lst, weights, partition_func,...
+) {
+    model_weights <- weights
+
+    z <- list(
+        components_lst = components_lst,
+        partition_func = partition_func,
+        model_weights = model_weights
+    )
+    class(z) <- "adlp_custom"
+
+    return (z)
+}
+```
 
 
 ```{r}
@@ -66,7 +82,7 @@ train_val_split <- function(df) {
 simulate_claims <- T
 
 ## Define the number of simulations and th triangle size
-n.sims <- 1
+n.sims <- 100
 tri.size <-40
 
 ## Install the 'SynthETIC' and the 'ChainLadder' packages if required:
@@ -87,6 +103,8 @@ if (simulate_claims) {source('simulation/simulate_claims.R')}
 
 ## Define the offsets values used for Gamma and Log-Normal models:
 tau <- 5
+tau_LN <- tau
+tau_Ga <- tau
 
 ## Define the component density and CDF functions 
 
@@ -670,24 +688,33 @@ sim_PPCF<-function(newdata, train_data, tri.size){
 ```
 
 
+
+
 ```{r}
 ### Perform the simulations: 
 
 ### Create a list to store the simulated component models:
 components_list <- list()
 
+### Create a matrix to store selected individual models' Log Score:
+LS_ZAGA_mat <- matrix(NA, nrow = 780, ncol = n.sims)
+LS_PPCF_mat <- matrix(NA, nrow = 780, ncol = n.sims)
+
 
 for (sim in 1:n.sims) {
     # Train on train, test on valid-test
+    set.seed(20200130+sim)
     past_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-past-data.csv', tri.size, sim))
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    past_data$tau_Ga<-5
-    past_data$tau_LN<-5
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    past_data$tau_Ga<-tau_Ga
+    past_data$tau_LN<-tau_LN
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
     
     #### Partition the data into training and validation set #####
-    insample_data <- full_data[full_data$calendar <= 41,]
+    #insample_data <- full_data[full_data$calendar <= 41,]
+    insample_data <- past_data
+    outsample_data <- full_data[full_data$calendar > 41,]
     train_val <- train_val_split(insample_data)
     
     ############################################################
@@ -696,6 +723,7 @@ for (sim in 1:n.sims) {
     
     train_data <- train_val$train
     train_all_data <- rbind(train_val$train, train_val$valid)
+    
     
     #### Fit all the component models used in the paper: ######
     invisible(capture.output({
@@ -763,7 +791,7 @@ Ga_optimTau_component = adlp_component(
     calc_cdf = CDF_GA,
     calc_mu = mu_GA,
     sim_fun = sim_GA,
-    tau = 5
+    tau = tau
 )
 
 LN_optimTau_component = adlp_component(
@@ -773,7 +801,7 @@ LN_optimTau_component = adlp_component(
     calc_cdf = CDF_LN,
     calc_mu = mu_LN,
     sim_fun = sim_LN,
-    tau = 5
+    tau = tau
 )
 
 gamma_1_component = adlp_component(
@@ -810,7 +838,7 @@ glm_Ga_Ho_tr1_component = adlp_component(
     calc_cdf = CDF_GA,
     calc_mu = mu_GA,
     sim_fun = sim_GA,
-    tau = 5
+    tau = tau
 )
 
 glm_LN_Ho_tr1_component = adlp_component(
@@ -820,7 +848,7 @@ glm_LN_Ho_tr1_component = adlp_component(
     calc_cdf = CDF_LN,
     calc_mu = mu_LN,
     sim_fun = sim_LN,
-    tau = 5
+    tau = tau
 )
 
 glm_ODP_Cal_tr1_component = adlp_component(
@@ -839,7 +867,7 @@ glm_Ga_Cal_tr1_component = adlp_component(
     calc_cdf = CDF_GA,
     calc_mu = mu_GA,
     sim_fun = sim_GA,
-    tau = 5
+    tau = tau
 )
 
 glm_LN_Cal_tr1_component = adlp_component(
@@ -849,7 +877,7 @@ glm_LN_Cal_tr1_component = adlp_component(
     calc_cdf = CDF_LN,
     calc_mu = mu_LN,
     sim_fun = sim_LN,
-    tau = 5
+    tau = tau
 )
 
 sp_Normal_component = adlp_component(
@@ -868,7 +896,7 @@ sp_Gamma_component = adlp_component(
     calc_cdf = CDF_GA,
     calc_mu = mu_GA,
     sim_fun = sim_GA,
-    tau = 5
+    tau = tau
 )
 
 sp_LN_component = adlp_component(
@@ -878,7 +906,7 @@ sp_LN_component = adlp_component(
     calc_cdf = CDF_LN,
     calc_mu = mu_LN,
     sim_fun = sim_LN,
-    tau = 5
+    tau = tau
 )
 
 gamlss_GA_component = adlp_component(
@@ -888,7 +916,7 @@ gamlss_GA_component = adlp_component(
     calc_cdf = CDF_GA_Gamlss,
     calc_mu = mu_GA_Gamlss,
     sim_fun = sim_GA_Gamlss,
-    tau = 5
+    tau = tau
 )
 
 gamlss_LN_component = adlp_component(
@@ -898,7 +926,7 @@ gamlss_LN_component = adlp_component(
     calc_cdf = CDF_LN_Gamlss,
     calc_mu = mu_LN_Gamlss,
     sim_fun = sim_LN_Gamlss,
-    tau = 5
+    tau = tau
 )
 
 
@@ -923,6 +951,9 @@ ODP_PPCF_component = adlp_component(
     train_data = train_data,
     tri.size = 40
 )
+
+LS_ZAGA_mat[, sim] <- log(dens_ZAGA(outsample_data$aggregate_claims,gamma_1_full,outsample_data)+1e-6)
+LS_PPCF_mat[, sim] <- log(dens_PPCF(y = outsample_data$aggregate_claims, newdata = outsample_data, train_data = train_all_data, tri.size = 40)+1e-6)
 
 components_list[[sim]] <- adlp_components(
     ODP_GLM = ODP_GLM_component,
@@ -950,6 +981,10 @@ components_list[[sim]] <- adlp_components(
 
 }
 ```
+
+
+
+
 
 
 
@@ -1095,19 +1130,34 @@ fit_0_40 <- list()
 ## Perform the simulations:
 
 for (sim in 1:n.sims) {
+    set.seed(20200130+sim)
+    # Train on train, test on valid-test
+    past_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-past-data.csv', tri.size, sim))
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    past_data$tau_Ga<-tau_Ga
+    past_data$tau_LN<-tau_LN
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    
+    #### Partition the data into training and validation set #####
+    insample_data <- past_data
+    train_val <- train_val_split(insample_data)
 
     components <- components_list[[sim]]
 
         fit_0_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
-            partition_func = adlp_partition_none
+            partition_func = adlp_partition_none,
+            param_tol = 0
         )
 }
 
 
 
 ```
+
+
 
 
 ```{r}
@@ -1135,6 +1185,19 @@ fit_18_40 <- list()
 ## Perform the simulations:
 
 for (sim in 1:n.sims) {
+    set.seed(20200130+sim)
+     # Train on train, test on valid-test
+    past_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-past-data.csv', tri.size, sim))
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    past_data$tau_Ga<-tau_Ga
+    past_data$tau_LN<-tau_LN
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    
+    #### Partition the data into training and validation set #####
+    insample_data <- past_data
+    train_val <- train_val_split(insample_data)
+    
 
     components <- components_list[[sim]]
 
@@ -1142,113 +1205,197 @@ for (sim in 1:n.sims) {
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par1_2_40,
+            param_tol = 0
         )
         
         fit_2_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par2_2_40,
+            param_tol = 0
         )
         
         fit_3_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par3_2_40,
+            param_tol = 0
         )
         
         fit_4_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par4_2_40,
+            param_tol = 0
         )
         
         fit_5_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par5_2_40,
+            param_tol = 0
         )
         
         fit_6_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par6_2_40,
+            param_tol = 0
         )
         
         fit_7_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par7_2_40,
+            param_tol = 0
         )
         
         fit_8_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par8_2_40,
+            param_tol = 0
         )
         
         fit_9_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par9_2_40,
+            param_tol = 0
         )
         
         fit_10_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par10_2_40,
+            param_tol = 0
         )
         
         fit_11_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par11_2_40,
+            param_tol = 0
         )
         
         fit_12_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par12_2_40,
+            param_tol = 0
         )
         
         fit_13_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par13_2_40,
+            param_tol = 0
         )
         
         fit_14_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par14_2_40,
+            param_tol = 0
         )
         
         fit_15_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par15_2_40,
+            param_tol = 0
         )
         
         fit_16_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par16_2_40,
+            param_tol = 0
         )
         
         fit_17_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par17_2_40,
+            param_tol = 0
         )
         
         fit_18_40[[sim]] <- adlp(
             components_lst = components,
             newdata = train_val$valid,
             partition_func = par18_2_40,
+            param_tol = 0
         )
 
 }
 
 ```
+
+Fit the equally weighted ensemble:
+
+```{r}
+## Define the customized weights (In this case, it is equally weighted): 
+Equally_weights <- list(rep(1/18, 18))
+fit_EW <- list()
+for (sim in 1:n.sims){
+components <- components_list[[sim]]
+fit_EW[[sim]] <- adlp_custom(components_lst = components,
+weights = Equally_weights,
+partition_func = adlp_partition_none)}
+
+
+```
+
+Fit the BMV model:
+
+```{r}
+## Define a list to store the fitted SLP ensembles: 
+
+fit_BMV <- list()
+
+## Perform the simulations:
+
+for (sim in 1:n.sims) {
+    # Train on train, test on valid-test
+    past_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-past-data.csv', tri.size, sim))
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    past_data$tau_Ga<-tau_Ga
+    past_data$tau_LN<-tau_LN
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    
+    #### Partition the data into training and validation set #####
+    insample_data <- past_data
+    train_val <- train_val_split(insample_data)
+
+    components <- components_list[[sim]]
+    
+    # Calculate the density and log score of component models attained in the validation set:
+    component_dens = calc_adlp_component_lst(
+            components_lst = components, newdata = train_val$valid, model = "train", calc = "pdf"
+        )
+    component_dens <- subset(component_dens, select = -c(origin, dev))
+    valid_logs <- apply(component_dens, MARGIN = 2, FUN = function(x) mean(log(x)))
+    
+    # Find the index for model with the highest log score attained in validation set (i.e., the BMV model)
+    BMV_index <- as.numeric(which.max(valid_logs))
+    
+    # Assign a weight of 1 to BMV and 0 for others:
+    w <- rep(0, 18)
+    w[BMV_index] <- 1
+    
+    # Create an ADLP object using the BMV weights: 
+    fit_BMV[[sim]] <- adlp_custom(components_lst = components,
+                weights = list(w),
+                partition_func = adlp_partition_none)
+    
+    
+}
+```
+
+
+
+
 
 # Model evaluation with proper scoring rules: 
 
@@ -1288,8 +1435,8 @@ ensemble_logS_out_fit_18_40 <- matrix(NA, nrow = nrow(full_data[full_data$calend
 for (sim in 1:n.sims) {
     set.seed(20200130+sim)
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
     outsample_data <- full_data[full_data$calendar > 41,]
     ensemble_logS_out_fit_1_40[, sim] <- adlp_logS(fit_1_40[[sim]], outsample_data, "full")[, -c(1,2)]
     
@@ -1335,13 +1482,20 @@ for (sim in 1:n.sims) {
 ```
 
 ```{r}
+adlp_dens(fit_1_40[[sim]], outsample_data, "full")
+adlp_dens(fit_2_40[[sim]], outsample_data, "full")
+```
+
+
+
+```{r}
 ### Calculate the Log score for SLP:
 ensemble_logS_out_fit_0_40 <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
 
 for (sim in 1:n.sims) {
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga <- tau_Ga
+    full_data$tau_LN<- tau_LN
     outsample_data <- full_data[full_data$calendar > 41,]
     
     ensemble_logS_out_fit_0_40[, sim] <- adlp_logS(fit_0_40[[sim]], outsample_data, "full")[, -c(1,2)]
@@ -1349,6 +1503,70 @@ for (sim in 1:n.sims) {
 
 
 ```
+
+
+```{r}
+### Calculate the Log score for Equally weighted ensemble:
+ensemble_logS_out_fit_EW <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_logS_out_fit_EW[, sim] <- adlp_logS(fit_EW[[sim]], outsample_data, "full")[, -c(1,2)]
+}
+
+
+```
+
+```{r}
+### Calculate the Log score for BMV: 
+
+ensemble_logS_out_fit_BMV <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_logS_out_fit_BMV[, sim] <- adlp_logS(fit_BMV[[sim]], outsample_data, "full")[, -c(1,2)]
+}
+
+
+```
+
+Calculate the Log Score by accident periods:
+
+```{r}
+### Construct a function to calculate scores by accident period:
+
+average_by_ap <- function(origin, data){
+    temp_dat <- as.data.frame(cbind(origin, data))
+    colnames(temp_dat)[1]  = "origin"
+    temp_dat <- temp_dat[order(temp_dat$origin), ]
+    LS_ap <- c()
+    for (i in 1:length(unique(temp_dat$origin))){
+        LS_ap[i] <- mean(apply(temp_dat[temp_dat$origin == unique(temp_dat$origin)[i], -1], FUN = mean, MARGIN = 1))
+    }
+    return(LS_ap)
+}
+
+###  Calculate the Log Score by accident periods: 
+LS_ZAGA_ap <- average_by_ap(outsample_data$origin, LS_ZAGA_mat)
+LS_PPCF_ap <- average_by_ap(outsample_data$origin, LS_PPCF_mat)
+LS_SLP_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_0_40)
+LS_EW_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_EW)
+LS_BMV_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_BMV)
+LS_ADLP1_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_1_40)
+LS_ADLP12_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_12_40)
+LS_ADLP18_ap <- average_by_ap(outsample_data$origin, ensemble_logS_out_fit_18_40)
+
+```
+
+
 
 
 Plot the average Log-score by partition ensemble:
@@ -1377,9 +1595,54 @@ Plot the average Log-score by partition ensemble:
 
 
 
+
+
 ```{r}
+# Log Score Boxplots:
+ensemble_logS <- list(ADLP_par0 = ensemble_logS_out_fit_0_40, EW = ensemble_logS_out_fit_EW, ADLP_12 = ensemble_logS_out_fit_12_40, BMV = ensemble_logS_out_fit_BMV)
+mean_score_over_sim <- lapply(ensemble_logS, FUN = function(x) apply(x, MARGIN = 2, FUN = mean))
+
+#pdf(paste0("plotting/triangle_", tri.size, "_", n.sims, "_LogScoreBoxPlot.pdf"))
+ggplot(data=stack(data.frame(mean_score_over_sim)[, c('ADLP_par0', 'EW', 'ADLP_12', 'BMV')]), aes(x = ind, y = values)) + 
+    geom_boxplot()+labs(x="Model",y="Log Score") +
+    ggtitle("Average Log Score") +
+    scale_x_discrete(labels=c('SLP', 'EW', 'ADLP 12', 'BMV'))
+#dev.off()
+
+# Log Score by split points: 
 plot(x = c(0,split_points_40), y = Mean_LS, main = "Mean Log-score", xlab = "Split points", ylab = "Mean Log Score")
 points(x = 0 , y = mean(ensemble_logS_out_fit_0_40), col = "grey", pch = 19)
+
+# Log Score by accident periods (1): 
+all_ap <- 2:40
+plot(x=all_ap, y=LS_PPCF_ap,col="orange",lwd=1,
+     ylim=c(-8,0),type="l",main="Log-Score by Accident Periods ",ylab="Mean Log Score",xlab="Accident Periods")
+points(x=all_ap, y=LS_ZAGA_ap,col="brown",type="l",lwd=1)
+points(x=all_ap,y=LS_BMV_ap,col="green",type="l",lwd=1)
+points(x=all_ap,y=LS_SLP_ap,col="yellow",type="l",lwd=1)
+points(x=all_ap,y=LS_EW_ap,col="red",type="l",lwd=1)
+
+legend('topright',
+       legend=c("PPCF",
+                "ZAGA",
+                "Best Models in Validation Set",
+                "SLP", "Equally Weighted Ensemble"),
+       col=c("orange","brown","green","yellow","red"),lty=1,cex=0.6)
+
+
+# Log Score by accident periods (2):
+
+plot(x=all_ap,y=LS_SLP_ap,col="yellow",type="l",lwd=2, ylim=c(-8,0), main="Log-Score by Accident Periods ",ylab="Mean Log Score",xlab="Accident Periods")
+points(x=all_ap,y=LS_ADLP1_ap,col="#2417DA",type="l",lwd=1)
+points(x=all_ap,y=LS_ADLP12_ap,col="#6D4691",type="l",lwd=1)
+points(x=all_ap,y=LS_ADLP18_ap,col="#FFA500",type="l",lwd=1)
+points(x=all_ap,y=LS_EW_ap,col="red",type="l",lwd=1)
+points(x=all_ap,y=LS_BMV_ap,col="green",type="l",lwd=1)
+legend('topright',
+       legend=c("Best Models in Validation Set",
+                "SLP","ADLP 1(AP 2-3)","ADLP 12(AP2-18)", "ADLP 18(AP2-33)","Equally Weighted Ensemble"),
+       col=c("green","yellow","#2417DA","#6D4691","#FFA500","red"),lty=1,cex=0.6)
+
 ```
 
 
@@ -1420,8 +1683,8 @@ n.sims
 for (sim in 1:n.sims) {
     set.seed(20200130+sim)
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga<- tau_Ga
+    full_data$tau_LN<- tau_LN
     outsample_data <- full_data[full_data$calendar > 41,]
     
     ## JL
@@ -1473,6 +1736,41 @@ for (sim in 1:n.sims) {
 
 ```
 
+
+```{r}
+### Calculate the CPRS for Equally weighted ensemble:
+ensemble_CRPS_out_fit_EW <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_CRPS_out_fit_EW[, sim] <- adlp_CRPS(fit_EW[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
+}
+
+
+```
+
+
+```{r}
+### Calculate the CPRS for BMV
+ensemble_CRPS_out_fit_BMV <- matrix(NA, nrow = nrow(full_data[full_data$calendar > 41,]), ncol = n.sims)
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    outsample_data <- full_data[full_data$calendar > 41,]
+    
+    ensemble_CRPS_out_fit_BMV[, sim] <- adlp_CRPS(fit_BMV[[sim]], outsample_data, response_name = "aggregate_claims", "full", lower = 1, upper=NULL, sample_n = upper_bound)[, -c(1,2)]
+}
+
+
+```
+
+
 ```{r}
 Time_end <- Sys.time()
 Time_end-Time_start
@@ -1480,7 +1778,7 @@ Time_end-Time_start
 
 
 ```{r}
-n.sims
+n.sims 
 Mean_CRPS <- c(mean(ensemble_CRPS_out_fit_1_40[, 1:n.sims]),
                      mean(ensemble_CRPS_out_fit_2_40[, 1:n.sims]),
                      mean(ensemble_CRPS_out_fit_3_40[, 1:n.sims]),
@@ -1505,8 +1803,18 @@ Mean_CRPS <- c(mean(ensemble_CRPS_out_fit_1_40[, 1:n.sims]),
 plot(x = split_points_40, y = Mean_CRPS, main = "Mean CRPS", xlab = "Split points", ylab = "Mean CRPS")
 ```
 
+```{r}
+# CRPS Boxplots
+ensemble_CRPS <- list(ADLP_par0 = ensemble_CRPS_out_fit_0_40, ADLP_12 = ensemble_CRPS_out_fit_12_40, EW = ensemble_CRPS_out_fit_EW, BMV = ensemble_CRPS_out_fit_BMV)
+mean_score_over_sim <- lapply(ensemble_CRPS, FUN = function(x) apply(x, MARGIN = 2, FUN = mean))
 
-
+#pdf(paste0("plotting/triangle_", tri.size, "_", n.sims, "_LogScoreBoxPlot.pdf"))
+ggplot(data=stack(data.frame(mean_score_over_sim)[, c('ADLP_par0','ADLP_12', 'BMV', 'EW')]), aes(x = ind, y = values)) +  ylim(10, 25) + 
+    geom_boxplot()+labs(x="Model",y="CRPS") +
+    ggtitle(paste("CRPS", "with Tau =", tau_Ga)) +
+    scale_x_discrete(labels=c('SLP', 'ADLP 12', 'BMV', 'EW'))
+#dev.off()
+```
 
 
 # Reserve calculation 
@@ -1520,8 +1828,8 @@ true_reserve <- c()
     
 for (sim in 1:n.sims) {
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
     outsample_data <- full_data[full_data$calendar > 41, ]
     ## Calculate the true reserve: 
     true_reserve[sim] <- sum(outsample_data$aggregate_claims)
@@ -1536,21 +1844,26 @@ for (sim in 1:n.sims) {
 
 reserve_0_40 <- c()
 reserve_12_40 <- c()
+reserve_EW <- c()
+reserve_BMV <- c()
     
 for (sim in 1:n.sims) {
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
     outsample_data <- full_data[full_data$calendar > 41, ]
     
     ## Calculate the predicted mean for the selected ADLP ensemble and SLP in the paper: 
     res_12_40 <- predict.adlp(fit_12_40[[sim]], outsample_data)
     res_0_40 <- predict.adlp(fit_0_40[[sim]], outsample_data)
+    res_EW <- predict.adlp(fit_EW[[sim]], outsample_data)
+    res_BMV <- predict.adlp(fit_BMV[[sim]], outsample_data)
     
     ## Calculate the aggregate reserve: 
     reserve_12_40[sim] <- sum(res_12_40$ensemble_mu)
     reserve_0_40[sim] <- sum(res_0_40$ensemble_mu)
-    
+    reserve_EW[sim] <- sum(res_EW$ensemble_mu)
+    reserve_BMV[sim] <- sum(res_BMV$ensemble_mu)
 
 }
 
@@ -1558,16 +1871,26 @@ for (sim in 1:n.sims) {
 ```
 
 
+
+
+
 ```{r}
 ## Plot the distribution of the central relative reserve bias: 
 
-central_reserve_estimate <- cbind(reserve_0_40, reserve_12_40)
+central_reserve_estimate <- cbind(reserve_BMV, reserve_12_40, reserve_EW)
 relative_diff_centralBias <- (central_reserve_estimate-true_reserve)/true_reserve
 
-colnames(relative_diff_centralBias) = c("SLP", "ADLP 12")
+colnames(relative_diff_centralBias) = c("BMV", "ADLP 12", "EW")
 
-boxplot(relative_diff_centralBias, main = "Distribution of central relative reserve bias")
+central_reserve_estimate <- cbind(reserve_BMV, reserve_12_40, reserve_EW)
+relative_diff_centralBias <- (central_reserve_estimate-true_reserve)/true_reserve
 
+colnames(relative_diff_centralBias) = c("BMV", "ADLP 12", "EW")
+ggplot(data=stack(as.data.frame(relative_diff_centralBias)),aes(x=ind,y=values))+geom_boxplot()+labs(x="Models",y="Relative reserve bias")+ggtitle("Distribution of central relative reserve bias")+ylim(-0.5, 0.5)
+```
+
+```{r}
+relative_diff_centralBias
 ```
 
 
@@ -1576,13 +1899,15 @@ boxplot(relative_diff_centralBias, main = "Distribution of central relative rese
 ```{r}
 library(tidyverse)
 sim_reserve_0_40_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
+sim_reserve_EW_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
 sim_reserve_12_40_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
+sim_reserve_BMV_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
 
 
 for (sim in 1:n.sims) {
     full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
-    full_data$tau_Ga<-5
-    full_data$tau_LN<-5
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
     outsample_data <- full_data[full_data$calendar > 41, ]
     
     
@@ -1591,7 +1916,15 @@ for (sim in 1:n.sims) {
         group_by(sim) %>% 
         summarise(total = sum(simulation))
     
+    sim_reserve_EW <- adlp_simulate(1000, fit_EW[[sim]], outsample_data) %>% 
+        group_by(sim) %>% 
+        summarise(total = sum(simulation))
+    
     sim_reserve_12_40 <- adlp_simulate(1000, fit_12_40[[sim]], outsample_data) %>% 
+        group_by(sim) %>% 
+        summarise(total = sum(simulation))
+    
+    sim_reserve_BMV <- adlp_simulate(1000, fit_BMV[[sim]], outsample_data) %>% 
         group_by(sim) %>% 
         summarise(total = sum(simulation))
     
@@ -1599,6 +1932,36 @@ for (sim in 1:n.sims) {
     
     sim_reserve_0_40_mat[, sim] <- sim_reserve_0_40$total
     sim_reserve_12_40_mat[, sim] <- sim_reserve_12_40$total
+    sim_reserve_EW_mat[, sim] <- sim_reserve_EW$total
+    sim_reserve_BMV_mat[, sim] <- sim_reserve_BMV$total
+    
+    
+    #print(paste("This is iteration:", "", sim))
+    
+}
+
+```
+
+```{r}
+## Simulate from the equally weighted ensemble:
+#library(tidyverse)
+sim_reserve_EW_mat <- matrix(NA, nrow = 1000, ncol = n.sims)
+
+
+for (sim in 1:n.sims) {
+    full_data <- read.csv(sprintf('simulation/triangle_%s-data/sim%s-full-data.csv', tri.size, sim))
+    full_data$tau_Ga<-tau_Ga
+    full_data$tau_LN<-tau_LN
+    outsample_data <- full_data[full_data$calendar > 41, ]
+    
+    
+    ## Simulate the reserves: 
+    sim_reserve_EW <- adlp_simulate(1000, fit_EW[[sim]], outsample_data) %>% 
+        group_by(sim) %>% 
+        summarise(total = sum(simulation))
+    
+    ## Store to the matrices:
+    sim_reserve_EW_mat[, sim] <- sim_reserve_EW$total
     
     #print(paste("This is iteration:", "", sim))
     
@@ -1608,19 +1971,24 @@ for (sim in 1:n.sims) {
 
 
 
+
 ```{r}
 ## Calculate the 75 quantile reserve bias: 
 
-quantile_res_75_quantile <-apply(sim_reserve_12_40_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
+quantile_res_75_quantile_SLP <-apply(sim_reserve_0_40_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
+quantile_res_75_quantile_ADLP12 <-apply(sim_reserve_12_40_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
+quantile_res_75_quantile_EW <-apply(sim_reserve_EW_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
+quantile_res_75_quantile_BMV <-apply(sim_reserve_BMV_mat, MARGIN = 2, FUN = function(x) quantile(x, 0.75))
 
+
+quantile_res_75_quantile <- cbind(quantile_res_75_quantile_ADLP12, quantile_res_75_quantile_EW, quantile_res_75_quantile_BMV)
 quantile_res_75_quantile_bias <- (quantile_res_75_quantile-quantile(true_reserve, 0.75))/quantile(true_reserve, 0.75)
 
+colnames(quantile_res_75_quantile_bias) = c("ADLP 12", "EW", "BMV")
 
-boxplot(quantile_res_75_quantile_bias, main = "Distribution of relative reserve bias at the 75th quantile")
+ggplot(data=stack(as.data.frame(quantile_res_75_quantile_bias)),aes(x=ind,y=values))+geom_boxplot()+labs(x="Models",y="Relative reserve bias")+ggtitle("Distribution of relative reserve bias(75th quantile)")+ylim(-0.5, 0.5)
 
 ```
-
-
 
 
 
