@@ -1,6 +1,6 @@
 Package: ADLP
 Type: Package
-Title: ADLP: Accident and Development period adjusted Linear Pools for Actuarial Stochastic Reserving
+Title: ADLP: Accident and Development Period Adjusted Linear Pools for Actuarial Stochastic Reserving
 Version: 0.1.0
 Authors@R: c(
     person("Benjamin", "Avanzi", role = "aut", email = "b.avanzi@unimelb.edu.au"),
@@ -8,7 +8,7 @@ Authors@R: c(
     person("Yanfeng", "Li", role = c("aut", "cre"), email = "yanfeng.li@student.unsw.edu.au"),
     person("Bernard", "Wong", role = "aut", email = "bernard.wong@unsw.edu.au"),
     person("Alan", "Xian", role = "aut", email = "alanxian@hotmail.com"))
-Author: Benjamin Avanzi [aut], William Ho [aut], Greg Taylor [aut], Yanfeng Li [aut, cre], Bernard wong [aut]
+Author: Benjamin Avanzi [aut], William Ho [aut], Yanfeng Li [aut, cre], Bernard Wong [aut], Alan Xian [aut]
 Maintainer: Yanfeng Li <yanfeng.li@student.unsw.edu.au>
 Description: Loss reserving generally focuses on identifying a single model that can generate superior predictive performance. However, different loss reserving models specialise in capturing different aspects of loss data.
     This is recognised in practice in the sense that results from different models are often considered, and sometimes combined. For instance, actuaries may take a weighted average of the prediction outcomes from

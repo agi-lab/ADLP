@@ -25,7 +25,7 @@ Set Up
 ---
 
 To showcase the `ADLP` package, we will import a test claims dataset from
-[`SynthETIC`](https://cran.r-project.org/web/packages/SynthETIC/index.html). Note 
+[`SynthETIC`](https://CRAN.R-project.org/package=SynthETIC). Note 
 that some data manipulation is needed to transform the imported object into 
 a compatible format for `ADLP`, however any `data.frame` with column 1 titled 
 "origin" for accident periods and column 2 titled "dev" for development periods
@@ -102,7 +102,7 @@ base models will also function well.
 While we use `glm` style models in this example, the only requirement for the 
 base models is support for the S3 method 'formula', and being able to be fitted
 on by the datasets of similar structure to `claims_dataset`. To demonstrate the veModels from the
-[`gamlss`]{https://cran.r-project.org/web/packages/gamlss/index.html} package 
+[`gamlss`](https://CRAN.R-project.org/package=gamlss) package 
 was used while proofing the `ADLP` concept.
 
 ```{r}

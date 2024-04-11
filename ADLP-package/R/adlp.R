@@ -222,7 +222,7 @@ adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), 
     component_cdfs_lst <- split(component_cdfs, rep(z, each = nrow(newdata)))
 
     # Calculate CRPS for adlp
-    I<-function(y, z) ifelse(y<=z,1,0)
+    I <- function(y, z) {return (ifelse(y<=z,1,0))}
 
     out_partitions <- adlp$partition_func(newdata)
     n.partitions <- length(out_partitions)

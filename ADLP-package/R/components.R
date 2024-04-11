@@ -68,7 +68,7 @@ adlp_components <- function(...) {
     z <- list(...)
 
     for (i in names(z)) {
-        if (class(z[[i]]) != "adlp_component") {
+        if (!methods::is(z[[i]], "adlp_component")) {
             stop(paste("Argument `", i, "` is not an adlp_component", collapse = ""))
         }
     }

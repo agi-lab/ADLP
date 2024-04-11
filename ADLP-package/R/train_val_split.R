@@ -4,7 +4,7 @@ check_df <- function(df) {
     err_msg <- "Inputted dataframe does not have the
     correctly specified columns, "
 
-    if (class(df) != "data.frame") {stop(err_msg)}
+    if (!methods::is(df, "data.frame")) {stop(err_msg)}
 
     if (is.null(df$dev) | is.null(df$origin)) {stop(err_msg)}
 }
