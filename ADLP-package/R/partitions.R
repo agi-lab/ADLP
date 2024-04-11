@@ -11,10 +11,12 @@
 #'
 #' @return List containing the `df` as a result of the partitions.
 #'
-#' @seealso \link[adlp_partition_none]{adlp_partition_none},
-#'  \link[adlp_partition_ap]{adlp_partition_ap}
+#' @seealso \link[ADLP]{adlp_partition_none},
+#'  \link[ADLP]{adlp_partition_ap}
 #' @name adlp_partition
-NULL
+adlp_partition <- function(df, ...) {
+    return (adlp_partition_none(df))
+}
 
 #' @rdname adlp_partition
 #'

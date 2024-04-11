@@ -19,7 +19,7 @@
 #' Component models `model_train` and `model_full` are designed to be objects of
 #' class `glm`, `lm`, or similar. The models would desirably have a S3 method for
 #' `formula. For models that do not fit under this umbrella,
-#' see \link[custom_model]{custom_model}. For a potential list of candidate models,
+#' see \link[ADLP]{custom_model}. For a potential list of candidate models,
 #' one might refer to Avanzi, Li, Wong and Xian (2022).
 #'
 #' Functions as assumed to have the following parameter naming convention:
@@ -60,7 +60,7 @@ adlp_component <- function(
 #' @param ... Individual `adlp_components`
 #'
 #' @details
-#' Class to structure a list of \link[adlp_component]{adlp_components}.
+#' Class to structure a list of \link[ADLP]{adlp_components}.
 #'
 #' @name adlp_components
 #' @export
@@ -157,10 +157,19 @@ calc_adlp_component <- function(component, newdata,
 
 #' @rdname calc_adlp_component
 #'
+#' @param components_lst List of objects of class `adlp_component`
+#' @param newdata Claims Triangle and other information. `data.frame` format of
+#'  claims and related information for each cell. Dataframe will have columns
+#'   `origin` and `dev` as columns 1 and 2 respectively.
+#' @param model Whether the training component model or the full component model
+#' should be used
+#' @param calc Type of calculation to perform
+#' @param ... Other parameters to be passed into `calc_adlp_component`
+#'
 #' @details
 #' `calc_adlp_component_lst` is a wrapper for `calc_adlp_component` for each
 #' component in the list `components_lst`. This wrapper also contains functionality
-#' to signal the component that causes an error if it is occuring downstream.
+#' to signal the component that causes an error if it is occurring downstream.
 #'
 #' @export
 calc_adlp_component_lst <- function(

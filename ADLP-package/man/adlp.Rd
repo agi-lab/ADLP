@@ -5,12 +5,14 @@
 \alias{adlp}
 \title{Accident and Development period Adjusted Linear Pools (ADLP) Models}
 \usage{
-\method{print}{adlp}(object, ...)
+\method{print}{adlp}(x, ...)
 
-adlp(components_lst, newdata, partition_func, param_tol = 1e-06, ...)
+adlp(components_lst, newdata, partition_func, param_tol = 1e-16, ...)
 }
 \arguments{
-\item{...}{Other named parameters passed onto \link[MM_optim]{MM_optim}}
+\item{x}{Object of class \code{adlp}}
+
+\item{...}{Other named parameters passed onto further functions}
 
 \item{components_lst}{List of \code{adlp_components}}
 
@@ -33,10 +35,10 @@ Object of class \code{adlp}
 Class to estimate an ADLP model fitted by Minorization-Maximisation.
 }
 \details{
-See \link[adlp_component]{adlp_component} and \link[adlp_components]{adlp_components}
+See \link[ADLP]{adlp_component} and \link[ADLP]{adlp_components}
 objects for more information on required format for inputs.
 
-See \link[adlp_partition]{adlp_partition} for information on valid partition
+See \link[ADLP]{adlp_partition} for information on valid partition
 functions.
 
 For an understanding of how partitions affect the performance of the ADLP ensemble,

@@ -5,7 +5,7 @@
 \alias{adlp_component}
 \title{Accident and Development period Adjusted Linear Pools Component Models}
 \usage{
-\method{print}{adlp_component}(object, ...)
+\method{print}{adlp_component}(x, ...)
 
 adlp_component(
   model_train,
@@ -18,6 +18,8 @@ adlp_component(
 )
 }
 \arguments{
+\item{x}{Object of class \code{adlp_component}}
+
 \item{...}{Other named parameters required for the model or any of its
 related functions to run.}
 
@@ -44,7 +46,7 @@ estimation, prediction and goodness of fit.
 Component models \code{model_train} and \code{model_full} are designed to be objects of
 class \code{glm}, \code{lm}, or similar. The models would desirably have a S3 method for
 `formula. For models that do not fit under this umbrella,
-see \link[custom_model]{custom_model}. For a potential list of candidate models,
+see \link[ADLP]{custom_model}. For a potential list of candidate models,
 one might refer to Avanzi, Li, Wong and Xian (2022).
 
 Functions as assumed to have the following parameter naming convention:

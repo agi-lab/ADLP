@@ -35,6 +35,10 @@ default to the response fetched by \code{model.frame}.}
 should be used}
 
 \item{calc}{Type of calculation to perform}
+
+\item{components_lst}{List of objects of class \code{adlp_component}}
+
+\item{...}{Other parameters to be passed into \code{calc_adlp_component}}
 }
 \description{
 Accident and Development period Adjusted Linear Pools Component Models

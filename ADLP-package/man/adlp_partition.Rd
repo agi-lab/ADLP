@@ -16,13 +16,13 @@ adlp_partition_ap(df, tri.size, size = 1, weights = rep(1, size))
 \item{df}{data.frame format of claims and related information for each cell.
 Dataframe will have columns \code{origin} and \code{dev} as columns 1 and 2 respectively.}
 
+\item{...}{Other parameters used to calculate ADLP partitions}
+
 \item{tri.size}{Triangle size in claims}
 
 \item{size}{Number of partitions}
 
 \item{weights}{a vector of weights for the size of each partition.}
-
-\item{...}{Other parameters used to calculate ADLP partitions}
 }
 \value{
 List containing the \code{df} as a result of the partitions.
@@ -44,6 +44,6 @@ accident period that provides the amount of cells that is larger or equal to the
 desired split.
 }
 \seealso{
-\link[adlp_partition_none]{adlp_partition_none},
-\link[adlp_partition_ap]{adlp_partition_ap}
+\link[ADLP]{adlp_partition_none},
+\link[ADLP]{adlp_partition_ap}
 }

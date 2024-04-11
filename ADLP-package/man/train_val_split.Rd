@@ -22,7 +22,7 @@ General framework for any user-defined training/validation/testing split of
 claims triangle data. The ADLP package contains three default splitting algorithms.
 }
 \seealso{
-\link[train_val_split_by_AP]{train_val_split_by_AP},
-\link[train_val_split_method1]{train_val_split_method1},
-\link[train_val_split_method2]{train_val_split_method2}
+\link[ADLP]{train_val_split_by_AP},
+\link[ADLP]{train_val_split_method1},
+\link[ADLP]{train_val_split_method2}
 }

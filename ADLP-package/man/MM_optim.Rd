@@ -4,7 +4,14 @@
 \alias{MM_optim}
 \title{Minorization-Maximisation Algorithm performed to fit the ADLPs}
 \usage{
-MM_optim(w_init, dat, niter = 500, ...)
+MM_optim(w_init, dat, niter = 500)
+}
+\arguments{
+\item{w_init}{initial weights for each ADLP}
+
+\item{dat}{matrix of densities for each ADLP}
+
+\item{niter}{maximum number of iterations. Defaults to 500}
 }
 \description{
 The Minorization-Maximization algorithm aims to optimize a surrogate objective function that approximates the Log Score. This approach typically results in fast and stable convergence, while ensuring that combination weights adhere to the constraints of being non-negative and summing to one. For detailed description of the algorithm, one might refer to: Conflitti, De Mol, and Giannone (2015)

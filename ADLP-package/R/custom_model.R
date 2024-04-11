@@ -3,7 +3,7 @@
 #' Custom Model Wrapper
 #'
 #' Function to define basic functionality needed for a custom model that does
-#' not fit the general framework of models that align with \link[adlp_component]{adlp_component}
+#' not fit the general framework of models that align with \link[ADLP]{adlp_component}
 #'
 #' @param formula Formula needed that defines all variables required for the model
 #' @param data Initial training data for model
@@ -23,9 +23,12 @@ custom_model <- function(formula, data, ...) {
 }
 
 #' @rdname custom_model
+#' @param object Object of type `custom model`
+#' @param data data to update custom model
+#' @param ... Additional variables for update
 #' @export
-update.custom_model <- function(x, data) {
-    z <- x
+update.custom_model <- function(object, data, ...) {
+    z <- object
     z$data = data
     z
 }

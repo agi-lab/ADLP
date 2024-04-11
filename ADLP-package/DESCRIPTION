@@ -26,10 +26,9 @@ URL: https://github.com/agi-lab/ADLP
 BugReports: https://github.com/agi-lab/ADLP/issues
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 Suggests: 
     knitr,
-    rmarkdown,
     tidyverse,
     SynthETIC (>= 1.0.0)
 VignetteBuilder: knitr

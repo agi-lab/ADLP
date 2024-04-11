@@ -4,7 +4,7 @@
 #' Class to estimate an ADLP model fitted by Minorization-Maximisation.
 #'
 #' @param components_lst List of `adlp_components`
-#' @param newdata Validation data to fit the ADLP paritions on
+#' @param newdata Validation data to fit the ADLP partitions on
 #' @param partition_func Partition function used to subset the data. ADLP weights
 #' will be generated for each partition. To specify partition preferences,
 #' set the parameter to `adlp_partition_none` if no partitioning is required.
@@ -13,15 +13,15 @@
 #' function by defining the cut-off accident period for each subset manually.
 #' @param param_tol Tolerance for weights. Any value less than tolerance in
 #' magnitude is assumed zero.
-#' @param ... Other named parameters passed onto \link[MM_optim]{MM_optim}
+#' @param ... Other named parameters passed onto further functions
 #'
 #' @return Object of class `adlp`
 #'
 #' @details
-#' See \link[adlp_component]{adlp_component} and \link[adlp_components]{adlp_components}
+#' See \link[ADLP]{adlp_component} and \link[ADLP]{adlp_components}
 #' objects for more information on required format for inputs.
 #'
-#' See \link[adlp_partition]{adlp_partition} for information on valid partition
+#' See \link[ADLP]{adlp_partition} for information on valid partition
 #' functions.
 #'
 #' For an understanding of how partitions affect the performance of the ADLP ensemble,
@@ -33,6 +33,8 @@ adlp <- function(
     components_lst, newdata, partition_func, param_tol = 1e-16, ...
 ) {
 
+    dots <- list(...)
+
     # Calculate densities
     component_dens = calc_adlp_component_lst(
         components_lst, newdata, model = "train", calc = "pdf"
@@ -43,7 +45,10 @@ adlp <- function(
     model_weights<-list()
     optim_MM_par <- list()
 
-    valid_partitions <- partition_func(component_dens, ...)
+    valid_partitions <- do.call(
+        partition_func,
+        c(list(df = component_dens), dots[names(dots) %in% names(formals(partition_func))])
+    )
     n.partitions <- length(valid_partitions)
 
     for (i in 1:n.partitions) {
@@ -53,10 +58,14 @@ adlp <- function(
         dens_in <- partition_in[, 3:(n.components+2)]
 
         #Train the model weights using the MM Algorithm
-        optim_MM <- MM_optim(
-            w_init = w_init,
-            dat = as.matrix(dens_in),
-            ...
+        optim_MM <- do.call(
+            MM_optim,
+            c(list(
+                w_init = w_init,
+                dat = as.matrix(dens_in)
+                ),
+              dots[names(dots) %in% names(formals(MM_optim))]
+              )
         )
         finalw_MM <- optim_MM$finalparams
         finalw_MM <- ifelse(abs(finalw_MM) < param_tol, 0, finalw_MM)
@@ -197,7 +206,7 @@ adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), 
     }
 
     # Sample evenly spaced values between the lower and upper bound by using the quantile function:
-    z <- floor(quantile(lower:upper, seq(0, 1, by = 1/sample_n)))[-1]
+    z <- floor(stats::quantile(lower:upper, seq(0, 1, by = 1/sample_n)))[-1]
 
     z <- sort(z)
 

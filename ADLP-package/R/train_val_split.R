@@ -23,11 +23,19 @@ check_df <- function(df) {
 #' @return List containing `$train`, `$valid`, `$test`, which should partition
 #'  the input `df`.
 #'
-#' @seealso \link[train_val_split_by_AP]{train_val_split_by_AP},
-#'  \link[train_val_split_method1]{train_val_split_method1},
-#'  \link[train_val_split_method2]{train_val_split_method2}
+#' @seealso \link[ADLP]{train_val_split_by_AP},
+#'  \link[ADLP]{train_val_split_method1},
+#'  \link[ADLP]{train_val_split_method2}
 #' @name train_val_split
-NULL
+train_val_split <- function(df, ...) {
+    return (
+        list(
+            train = df,
+            valid = df,
+            test = df
+        )
+    )
+}
 
 #' Train-Validation Split by Accident Period
 #'
@@ -51,7 +59,7 @@ NULL
 #' Validation set is therefore cells outside of this period but within the
 #' upper triangle. The test set is all observations in the lower triangle.
 #'
-#' @seealso \link[train_val_split]{train_val_split}
+#' @seealso \link[ADLP]{train_val_split}
 #' @export
 train_val_split_by_AP <- function(
         df,
@@ -99,7 +107,7 @@ train_val_split_by_AP <- function(
 #'  claims and related information for each cell. Dataframe will have columns
 #'   `origin` and `dev` as columns 1 and 2 respectively.
 #' @param tri.size Triangle size.
-#' @param val_ratio Value between 0 and 1 as the approximate size of validaiton
+#' @param val_ratio Value between 0 and 1 as the approximate size of validation
 #'  set.
 #' @param test Returns the test set if `TRUE` .
 #'
@@ -116,7 +124,7 @@ train_val_split_by_AP <- function(
 #' Note that accident period 1 and development period 1 will always be within
 #' the training set.
 #'
-#' @seealso \link[train_val_split]{train_val_split}
+#' @seealso \link[ADLP]{train_val_split}
 #' @export
 train_val_split_method1 <- function(df, tri.size, val_ratio, test = FALSE) {
 
@@ -164,7 +172,7 @@ train_val_split_method1 <- function(df, tri.size, val_ratio, test = FALSE) {
 #' Note that accident period 1 and development period 1 will always be within
 #' the training set.
 #'
-#' @seealso \link[train_val_split]{train_val_split}
+#' @seealso \link[ADLP]{train_val_split}
 #' @export
 train_val_split_method2 <- function(df, tri.size, val_ratio, test = FALSE) {
 

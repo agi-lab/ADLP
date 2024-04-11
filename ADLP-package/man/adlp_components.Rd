@@ -5,16 +5,18 @@
 \alias{adlp_components}
 \title{Accident and Development period Adjusted Linear Pools Component Models}
 \usage{
-\method{print}{adlp_components}(object, ...)
+\method{print}{adlp_components}(x, ...)
 
 adlp_components(...)
 }
 \arguments{
+\item{x}{Object of class \code{adlp_components}}
+
 \item{...}{Individual \code{adlp_components}}
 }
 \description{
 Accident and Development period Adjusted Linear Pools Component Models
 }
 \details{
-Class to structure a list of \link[adlp_component]{adlp_components}.
+Class to structure a list of \link[ADLP]{adlp_components}.
 }

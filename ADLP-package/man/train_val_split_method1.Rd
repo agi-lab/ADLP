@@ -36,5 +36,5 @@ Note that accident period 1 and development period 1 will always be within
 the training set.
 }
 \seealso{
-\link[train_val_split]{train_val_split}
+\link[ADLP]{train_val_split}
 }

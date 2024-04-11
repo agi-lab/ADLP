@@ -1,13 +1,18 @@
 
 #' @rdname adlp
+#' @param x Object of class `adlp`
 #' @export
-print.adlp <- function(object, ...) {
-    print(object$components_lst)
+print.adlp <- function(x, ...) {
+    print(x$components_lst)
     print("ADLP weights:")
-    print(object$model_weights)
+    print(x$model_weights)
 }
 
 #' @rdname adlp_func
+#'
+#' @param object Object of class `adlp`
+#' @param newdata new data for prediction. Defaults to NULL
+#' @param ... Other parameters to pass onto predict
 #'
 #' @details
 #' Predicts the central estimates based on the ADLP component models and weights.
@@ -44,16 +49,18 @@ predict.adlp <- function(object, newdata = NULL, ...) {
 }
 
 #' @rdname adlp_component
+#' @param x Object of class `adlp_component`
 #' @export
-print.adlp_component <- function(object, ...) {
+print.adlp_component <- function(x, ...) {
     print(paste("ADLP Component: ", collapse = ""))
-    print(object$model_train$call)
+    print(x$model_train$call)
 }
 
 #' @rdname adlp_components
+#' @param x Object of class `adlp_components`
 #' @export
-print.adlp_components <- function(object, ...) {
+print.adlp_components <- function(x, ...) {
     print("ADLP Components:")
-    print(names(object))
+    print(names(x))
 }
 

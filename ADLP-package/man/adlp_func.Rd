@@ -13,11 +13,12 @@
 
 adlp_dens(adlp, newdata, model = c("train", "full"))
 
-adlp_logS(adlp, newdata, model = c("train", "full"), epsilon = 1e-08)
+adlp_logS(adlp, newdata, model = c("train", "full"), epsilon = 1e-06)
 
 adlp_CRPS(
   adlp,
   newdata,
+  response_name,
   model = c("train", "full"),
   lower = 1,
   upper = NULL,
@@ -27,7 +28,11 @@ adlp_CRPS(
 adlp_simulate(n, adlp, newdata = NULL)
 }
 \arguments{
+\item{object}{Object of class \code{adlp}}
+
 \item{newdata}{Data to perform the function on}
+
+\item{...}{Other parameters to pass onto predict}
 
 \item{adlp}{Object of class \code{adlp}}
 
@@ -35,12 +40,14 @@ adlp_simulate(n, adlp, newdata = NULL)
 
 \item{epsilon}{Offset added to the density before calculating the log}
 
+\item{response_name}{The column name of the response variable; in string format}
+
 \item{lower}{The lower limit to calculate CRPS; the default value is set to be 1}
 
 \item{upper}{The upper limit to calculate CRPS; the default value is set to be
 twice the maximum value of the response variable in the dataset}
 
-\item{sample_n}{The number of values to sample between lower and upper range of
+\item{sample_n}{The number of evenly spaced values to sample between lower and upper range of
 numeric integration used to calculate CRPS. This sample function is designed to
 constrain memory usage during the computation of CRPS,
 particularly when dealing with large response variables.}

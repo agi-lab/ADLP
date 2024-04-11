@@ -33,5 +33,5 @@ Validation set is therefore cells outside of this period but within the
 upper triangle. The test set is all observations in the lower triangle.
 }
 \seealso{
-\link[train_val_split]{train_val_split}
+\link[ADLP]{train_val_split}
 }

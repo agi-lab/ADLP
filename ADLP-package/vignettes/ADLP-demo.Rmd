@@ -1,7 +1,9 @@
 ---
-title: "ADLP: Accident and Development period adjusted Linear Pools"
-output: rmarkdown::html_vignette
-vignette: >
+title: 'ADLP: Accident and Development period adjusted Linear Pools'
+output:
+  html_document:
+    df_print: paged
+vignette: |
   %\VignetteIndexEntry{ADLP: Accident and Development period adjusted Linear Pools}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
@@ -11,7 +13,8 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
-)
+ )
+
 ```
 
 This vignette aims to illustrate how the `ADLP` package can be used to objectively
@@ -244,7 +247,7 @@ of creating 3 partitions in the validation data, with the accident periods being
 chosen to optimise the desired weighting of each partition.
 
 
-```{r}
+```{r, error = T}
 # Fitting ADLP class
 fit1 <- adlp(
     components_lst = components,
@@ -278,7 +281,7 @@ for each of the component models is necessary to perform this calculation.
 ensemble_logS <- adlp_logS(fit1, test_data, model = "full")
 
 # Cumulative Ranked Probability Score
-ensemble_CRPS <- adlp_CRPS(fit1, test_data, model = "full", sample_n = 1000)
+ensemble_CRPS <- adlp_CRPS(fit1, test_data, response_name = "claims", model = "full", sample_n = 1000)
 
 # Predictions
 ensemble_means <- predict(fit1, test_data)
@@ -324,7 +327,7 @@ Comparing models through MSE
 
 
 We can see that the ADLP ensembles perform better than all components on the 
-in=sample and only slightly loses out to base model 1 on the out-of-sample data.
+in-sample and only slightly loses out to base model 1 on the out-of-sample data.
 
 Note that this may also be due to model variance and we have not chosen to 
 optimise the base models.
