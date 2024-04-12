@@ -19,7 +19,7 @@ Description: Loss reserving generally focuses on identifying a single model that
     calendar, and claim maturity effects. Crucially, the relative importance and scarcity of data across accident periods renders the problem distinct from the traditional ensembling techniques in statistical learning.
         Our framework is illustrated with a complex synthetic dataset. In the results, the optimised ensemble outperforms both (i) traditional model selection strategies, and (ii) an equally weighted ensemble. In
     particular, the improvement occurs not only with central estimates but also relevant quantiles, such as the 75th percentile of reserves (typically of interest to both insurers and regulators).
-    Reference: Avanzi B, Li Y, Wong B, Xian A (2023) "Ensemble distributional forecasting for insurance loss reserving" <arXiv:2206.08541>.
+    Reference: Avanzi B, Li Y, Wong B, Xian A (2023) "Ensemble distributional forecasting for insurance loss reserving" <https://doi.org/10.48550/arXiv.2206.08541>.
 License: GPL-3
 Encoding: UTF-8
 URL: https://github.com/agi-lab/ADLP
