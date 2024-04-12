@@ -1,6 +1,6 @@
 Package: ADLP
 Type: Package
-Title: ADLP: Accident and Development Period Adjusted Linear Pools for Actuarial Stochastic Reserving
+Title: Accident and Development Period Adjusted Linear Pools for Actuarial Stochastic Reserving
 Version: 0.1.0
 Authors@R: c(
     person("Benjamin", "Avanzi", role = "aut", email = "b.avanzi@unimelb.edu.au"),
