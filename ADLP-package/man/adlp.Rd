@@ -16,7 +16,7 @@ adlp(components_lst, newdata, partition_func, param_tol = 1e-16, ...)
 
 \item{components_lst}{List of \code{adlp_components}}
 
-\item{newdata}{Validation data to fit the ADLP paritions on}
+\item{newdata}{Validation data to fit the ADLP partitions on}
 
 \item{partition_func}{Partition function used to subset the data. ADLP weights
 will be generated for each partition. To specify partition preferences,
@@ -29,7 +29,18 @@ function by defining the cut-off accident period for each subset manually.}
 magnitude is assumed zero.}
 }
 \value{
-Object of class \code{adlp}
+Object of class \code{adlp}. This object has the following components:
+\describe{
+\item{components_lst}{adlp_components; List of adlp_components, see
+also \code{adlp_components}}
+\item{model_weights}{vector; vector of model weights fitted for each
+component}
+\item{partition_func}{function; Partition function used to fit the
+components}
+\item{optim_MM}{mm_optim; Details related to the MM algorithm
+see also \code{MM_optim()}}
+\item{newdata}{data.frame; Data.frame used to fit the ADLP}
+}
 }
 \description{
 Class to estimate an ADLP model fitted by Minorization-Maximisation.
@@ -43,6 +54,22 @@ functions.
 
 For an understanding of how partitions affect the performance of the ADLP ensemble,
 one might refer to Avanzi, Li, Wong and Xian (2022)
+}
+\examples{
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <- test_component1$model_train$data
+
+test_adlp <- adlp(test_components, newdata = newdata,
+    partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+
+
 }
 \references{
 Avanzi, B., Li, Y., Wong, B., & Xian, A. (2022). Ensemble distributional forecasting for insurance loss reserving. arXiv preprint arXiv:2206.08541.

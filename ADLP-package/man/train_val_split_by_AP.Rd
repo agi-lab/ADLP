@@ -32,6 +32,17 @@ accident period: \eqn{(x_{ij} <= MaxDP(i))}.
 Validation set is therefore cells outside of this period but within the
 upper triangle. The test set is all observations in the lower triangle.
 }
+\examples{
+data("test_claims_dataset")
+
+train_val <- train_val_split_by_AP(
+    df = test_claims_dataset,
+    accident_periods = 1:40,
+    max_dev_periods = 40:1,
+    test = TRUE
+)
+
+}
 \seealso{
 \link[ADLP]{train_val_split}
 }

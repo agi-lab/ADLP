@@ -47,10 +47,10 @@ adlp_simulate(n, adlp, newdata = NULL)
 \item{upper}{The upper limit to calculate CRPS; the default value is set to be
 twice the maximum value of the response variable in the dataset}
 
-\item{sample_n}{The number of evenly spaced values to sample between lower and upper range of
-numeric integration used to calculate CRPS. This sample function is designed to
-constrain memory usage during the computation of CRPS,
-particularly when dealing with large response variables.}
+\item{sample_n}{The number of evenly spaced values to sample between lower
+and upper range of numeric integration used to calculate CRPS. This sample
+function is designed to constrain memory usage during the computation of
+CRPS, particularly when dealing with large response variables.}
 
 \item{n}{number of simulations}
 }
@@ -84,6 +84,68 @@ For details, one might refer to
 Gneiting and Ranjan (2011)
 
 Simulations of ADLP predictions, given component models and ADLP weights.
+}
+\examples{
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <- test_component1$model_train$data
+
+test_adlp <- adlp(test_components, newdata = newdata,
+    partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+
+test_adlp_dens <- adlp_dens(test_adlp, newdata, "full")
+
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <- test_component1$model_train$data
+
+test_adlp <- adlp(test_components, newdata = newdata,
+    partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+
+test_adlp_logs <- adlp_logS(test_adlp, newdata, "full")
+
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <- test_component1$model_train$data
+
+test_adlp <- adlp(test_components, newdata = newdata, response_name = "claims"
+    partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+
+test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full")
+
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <- test_component1$model_train$data
+
+test_adlp <- adlp(test_components, newdata = newdata,
+    partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+
+test_adlp_sim <- adlp_simulate(100, test_adlp, newdata=newdata)
+
 }
 \references{
 Gneiting, T., Raftery, A. E., 2007. Strictly proper scoring rules, prediction, and estimation. Journal of the American Statistical Association 102 (477), 359–378.

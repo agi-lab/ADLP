@@ -43,6 +43,14 @@ The choice of accident period relies on a greedy algorithm that aims to find the
 accident period that provides the amount of cells that is larger or equal to the
 desired split.
 }
+\examples{
+data("test_claims_dataset")
+adlp_partition_none(test_claims_dataset)
+
+data("test_claims_dataset")
+adlp_partition_ap(test_claims_dataset, tri.size = 40, size = 3)
+
+}
 \seealso{
 \link[ADLP]{adlp_partition_none},
 \link[ADLP]{adlp_partition_ap}

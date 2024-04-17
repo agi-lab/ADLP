@@ -24,6 +24,10 @@ adlp_partition <- function(df, ...) {
 #' `adlp_partition_none` is the default functionality with no partitions. This is
 #' equivalent to the standard linear pooling.
 #'
+#' @examples
+#' data("test_claims_dataset")
+#' adlp_partition_none(test_claims_dataset)
+#'
 #' @export
 adlp_partition_none <- function(df) {
     return (list(
@@ -45,6 +49,10 @@ adlp_partition_none <- function(df) {
 #' The choice of accident period relies on a greedy algorithm that aims to find the
 #' accident period that provides the amount of cells that is larger or equal to the
 #' desired split.
+#'
+#' @examples
+#' data("test_claims_dataset")
+#' adlp_partition_ap(test_claims_dataset, tri.size = 40, size = 3)
 #'
 #' @export
 adlp_partition_ap <- function(df, tri.size, size = 1, weights = rep(1, size)) {

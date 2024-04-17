@@ -18,6 +18,10 @@ set.}
 
 \item{test}{Returns the test set if \code{TRUE} .}
 }
+\value{
+List containing \verb{$train}, \verb{$valid}, \verb{$test}, which should partition
+the input \code{df}.
+}
 \description{
 Function for training/validation splitting.
 }
@@ -31,6 +35,18 @@ upper triangle. The test set is all observations in the lower triangle.
 
 Note that accident period 1 and development period 1 will always be within
 the training set.
+}
+\examples{
+
+data("test_claims_dataset")
+
+train_val <- train_val_split_method1(
+    df = test_claims_dataset,
+    tri.size = 40,
+    val_ratio = 0.3,
+    test = TRUE
+)
+
 }
 \seealso{
 \link[ADLP]{train_val_split}

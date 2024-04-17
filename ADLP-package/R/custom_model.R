@@ -8,8 +8,17 @@
 #' @param formula Formula needed that defines all variables required for the model
 #' @param data Initial training data for model
 #'
+#' @return An object of class `custom_model`. `custom_model` is a list that
+#' stores the required formula to update the model and the data used to update
+#' the model.
+#'
 #' @details
 #' Custom model should support the S3 method `formula` and `update`.
+#'
+#' @examples
+#' data("test_claims_dataset")
+#' custom_model <- custom_model(claims~., data=test_claims_dataset)
+#'
 #'
 #' @export
 custom_model <- function(formula, data, ...) {

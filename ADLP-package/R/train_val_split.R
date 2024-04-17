@@ -59,6 +59,16 @@ train_val_split <- function(df, ...) {
 #' Validation set is therefore cells outside of this period but within the
 #' upper triangle. The test set is all observations in the lower triangle.
 #'
+#' @examples
+#' data("test_claims_dataset")
+#'
+#' train_val <- train_val_split_by_AP(
+#'     df = test_claims_dataset,
+#'     accident_periods = 1:40,
+#'     max_dev_periods = 40:1,
+#'     test = TRUE
+#' )
+#'
 #' @seealso \link[ADLP]{train_val_split}
 #' @export
 train_val_split_by_AP <- function(
@@ -124,6 +134,17 @@ train_val_split_by_AP <- function(
 #' Note that accident period 1 and development period 1 will always be within
 #' the training set.
 #'
+#' @examples
+#'
+#' data("test_claims_dataset")
+#'
+#' train_val <- train_val_split_method1(
+#'     df = test_claims_dataset,
+#'     tri.size = 40,
+#'     val_ratio = 0.3,
+#'     test = TRUE
+#' )
+#'
 #' @seealso \link[ADLP]{train_val_split}
 #' @export
 train_val_split_method1 <- function(df, tri.size, val_ratio, test = FALSE) {
@@ -161,6 +182,9 @@ train_val_split_method1 <- function(df, tri.size, val_ratio, test = FALSE) {
 #'  set.
 #' @param test Returns the test set if `TRUE` .
 #'
+#' @return List containing `$train`, `$valid`, `$test`, which should partition
+#'  the input `df`.
+#'
 #' @details
 #' Approximates the validation set by defining the training set as the cells
 #' below the function \eqn{((b^{1/a} - x^{1/a})^a)}. Where \eqn{b} is equal to
@@ -171,6 +195,17 @@ train_val_split_method1 <- function(df, tri.size, val_ratio, test = FALSE) {
 #'
 #' Note that accident period 1 and development period 1 will always be within
 #' the training set.
+#'
+#' @examples
+#'
+#' data("test_claims_dataset")
+#'
+#' train_val <- train_val_split_method1(
+#'     df = test_claims_dataset,
+#'     tri.size = 40,
+#'     val_ratio = 0.3,
+#'     test = TRUE
+#' )
 #'
 #' @seealso \link[ADLP]{train_val_split}
 #' @export

@@ -13,8 +13,18 @@ MM_optim(w_init, dat, niter = 500)
 
 \item{niter}{maximum number of iterations. Defaults to 500}
 }
+\value{
+An object of class \code{mm_optim}. \code{mm_optim} is a list that stores the
+results of the MM algorithm performed, including the final parameters, the
+final loss and numer of iterations.
+}
 \description{
-The Minorization-Maximization algorithm aims to optimize a surrogate objective function that approximates the Log Score. This approach typically results in fast and stable convergence, while ensuring that combination weights adhere to the constraints of being non-negative and summing to one. For detailed description of the algorithm, one might refer to: Conflitti, De Mol, and Giannone (2015)
+The Minorization-Maximization algorithm aims to optimize a
+surrogate objective function that approximates the Log Score. This approach
+typically results in fast and stable convergence, while ensuring that
+combination weights adhere to the constraints of being non-negative and
+summing to one. For detailed description of the algorithm, one might refer
+to: Conflitti, De Mol, and Giannone (2015)
 }
 \references{
 Conflitti, Cristina, Christine De Mol, and Domenico Giannone. "Optimal combination of survey forecasts." International Journal of Forecasting 31.4 (2015): 1096-1103.

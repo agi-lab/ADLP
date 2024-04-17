@@ -40,6 +40,11 @@ should be used}
 
 \item{...}{Other parameters to be passed into \code{calc_adlp_component}}
 }
+\value{
+The result of the evaluated function on the \code{adlp_component}. This
+would be a vector with the same length as rows on \code{newdata} with the
+calculations.
+}
 \description{
 Accident and Development period Adjusted Linear Pools Component Models
 }
@@ -49,4 +54,23 @@ Calls the specified function for an object of class \code{adlp_component}.
 \code{calc_adlp_component_lst} is a wrapper for \code{calc_adlp_component} for each
 component in the list \code{components_lst}. This wrapper also contains functionality
 to signal the component that causes an error if it is occuring downstream.
+}
+\examples{
+data(test_adlp_component)
+
+newdata <-  test_adlp_component$model_train$data
+pdf_data = calc_adlp_component(test_adlp_component, newdata = newdata,
+                          model = "train", calc = "pdf")
+
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
+newdata <-  test_adlp_component$model_train$data
+pdf_data = calc_adlp_component_lst(test_components, newdata = newdata,
+                          model = "train", calc = "pdf")
 }

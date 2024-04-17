@@ -14,9 +14,22 @@ adlp_components(...)
 
 \item{...}{Individual \code{adlp_components}}
 }
+\value{
+An object of class \code{adlp_components}
+}
 \description{
 Accident and Development period Adjusted Linear Pools Component Models
 }
 \details{
 Class to structure a list of \link[ADLP]{adlp_components}.
+}
+\examples{
+data(test_adlp_component)
+test_component1 <- test_adlp_component
+test_component2 <- test_adlp_component
+test_components <- adlp_components(
+    component1 = test_component1,
+    component2 = test_component2
+)
+
 }

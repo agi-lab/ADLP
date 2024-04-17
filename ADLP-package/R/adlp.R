@@ -15,7 +15,18 @@
 #' magnitude is assumed zero.
 #' @param ... Other named parameters passed onto further functions
 #'
-#' @return Object of class `adlp`
+#' @return Object of class `adlp`. This object has the following components:
+#' \describe{
+#'   \item{components_lst}{adlp_components; List of adlp_components, see
+#'      also `adlp_components`}
+#'   \item{model_weights}{vector; vector of model weights fitted for each
+#'      component}
+#'   \item{partition_func}{function; Partition function used to fit the
+#'      components}
+#'   \item{optim_MM}{mm_optim; Details related to the MM algorithm
+#'      see also `MM_optim()`}
+#'   \item{newdata}{data.frame; Data.frame used to fit the ADLP}
+#' }
 #'
 #' @details
 #' See \link[ADLP]{adlp_component} and \link[ADLP]{adlp_components}
@@ -27,12 +38,26 @@
 #' For an understanding of how partitions affect the performance of the ADLP ensemble,
 #' one might refer to Avanzi, Li, Wong and Xian (2022)
 #'
+#' @examples
+#' data(test_adlp_component)
+#' test_component1 <- test_adlp_component
+#' test_component2 <- test_adlp_component
+#' test_components <- adlp_components(
+#'     component1 = test_component1,
+#'     component2 = test_component2
+#' )
+#'
+#' newdata <- test_component1$model_train$data
+#'
+#' test_adlp <- adlp(test_components, newdata = newdata,
+#'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+#'
+#'
 #' @references Avanzi, B., Li, Y., Wong, B., & Xian, A. (2022). Ensemble distributional forecasting for insurance loss reserving. arXiv preprint arXiv:2206.08541.
 #' @export
 adlp <- function(
     components_lst, newdata, partition_func, param_tol = 1e-16, ...
 ) {
-
     dots <- list(...)
 
     # Calculate densities
@@ -64,9 +89,9 @@ adlp <- function(
                 w_init = w_init,
                 dat = as.matrix(dens_in)
                 ),
-              dots[names(dots) %in% names(formals(MM_optim))]
-              )
-        )
+                dots[names(dots) %in% names(formals(MM_optim))]
+                )
+            )
         finalw_MM <- optim_MM$finalparams
         finalw_MM <- ifelse(abs(finalw_MM) < param_tol, 0, finalw_MM)
         finalw_MM <- finalw_MM/sum(finalw_MM)
@@ -109,6 +134,22 @@ NULL
 #' @details
 #' Calculates the probability density ad each point, given `newdata`.
 #'
+#' @examples
+#' data(test_adlp_component)
+#' test_component1 <- test_adlp_component
+#' test_component2 <- test_adlp_component
+#' test_components <- adlp_components(
+#'     component1 = test_component1,
+#'     component2 = test_component2
+#' )
+#'
+#' newdata <- test_component1$model_train$data
+#'
+#' test_adlp <- adlp(test_components, newdata = newdata,
+#'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+#'
+#' test_adlp_dens <- adlp_dens(test_adlp, newdata, "full")
+#'
 #' @export
 adlp_dens <- function(adlp, newdata, model = c("train", "full")) {
 
@@ -150,6 +191,22 @@ adlp_dens <- function(adlp, newdata, model = c("train", "full")) {
 #' For full discussion of the mathematical details and
 #' advantages of Log Score, one might refer to Gneiting and Raftery (2007)
 #'
+#' @examples
+#' data(test_adlp_component)
+#' test_component1 <- test_adlp_component
+#' test_component2 <- test_adlp_component
+#' test_components <- adlp_components(
+#'     component1 = test_component1,
+#'     component2 = test_component2
+#' )
+#'
+#' newdata <- test_component1$model_train$data
+#'
+#' test_adlp <- adlp(test_components, newdata = newdata,
+#'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+#'
+#' test_adlp_logs <- adlp_logS(test_adlp, newdata, "full")
+#'
 #' @export
 adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-6) {
     model <- match.arg(model)
@@ -170,10 +227,10 @@ adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-6)
 #' @param lower The lower limit to calculate CRPS; the default value is set to be 1
 #' @param upper The upper limit to calculate CRPS; the default value is set to be
 #' twice the maximum value of the response variable in the dataset
-#' @param sample_n The number of evenly spaced values to sample between lower and upper range of
-#' numeric integration used to calculate CRPS. This sample function is designed to
-#' constrain memory usage during the computation of CRPS,
-#' particularly when dealing with large response variables.
+#' @param sample_n The number of evenly spaced values to sample between lower
+#'  and upper range of numeric integration used to calculate CRPS. This sample
+#'  function is designed to constrain memory usage during the computation of
+#'  CRPS, particularly when dealing with large response variables.
 #'
 #' @details
 #' Continuously Ranked Probability Score (CRPS) is calculated for each data point.
@@ -191,6 +248,22 @@ adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-6)
 #'
 #' Gneiting, T., Ranjan, R., 2011. Comparing density forecasts using threshold-and quantile-weighted scoring rules. Journal of Business & Economic Statistics 29 (3), 411–422.
 #'
+#' @examples
+#' data(test_adlp_component)
+#' test_component1 <- test_adlp_component
+#' test_component2 <- test_adlp_component
+#' test_components <- adlp_components(
+#'     component1 = test_component1,
+#'     component2 = test_component2
+#' )
+#'
+#' newdata <- test_component1$model_train$data
+#'
+#' test_adlp <- adlp(test_components, newdata = newdata, response_name = "claims"
+#'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+#'
+#' test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full")
+#'
 #' @export
 adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), lower = 1, upper=NULL, sample_n = 2000) {
 
@@ -202,7 +275,7 @@ adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), 
 
 
     if (is.null(upper)) {
-         upper <- round(2*max(response_y),0)
+        upper <- round(2*max(response_y),0)
     }
 
     # Sample evenly spaced values between the lower and upper bound by using the quantile function:
@@ -270,6 +343,22 @@ adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), 
 #'
 #' @details
 #' Simulations of ADLP predictions, given component models and ADLP weights.
+#'
+#' @examples
+#' data(test_adlp_component)
+#' test_component1 <- test_adlp_component
+#' test_component2 <- test_adlp_component
+#' test_components <- adlp_components(
+#'     component1 = test_component1,
+#'     component2 = test_component2
+#' )
+#'
+#' newdata <- test_component1$model_train$data
+#'
+#' test_adlp <- adlp(test_components, newdata = newdata,
+#'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
+#'
+#' test_adlp_sim <- adlp_simulate(100, test_adlp, newdata=newdata)
 #'
 #' @export
 adlp_simulate <- function(n, adlp, newdata = NULL) {

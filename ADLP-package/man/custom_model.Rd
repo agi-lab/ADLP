@@ -18,10 +18,21 @@ custom_model(formula, data, ...)
 
 \item{object}{Object of type \verb{custom model}}
 }
+\value{
+An object of class \code{custom_model}. \code{custom_model} is a list that
+stores the required formula to update the model and the data used to update
+the model.
+}
 \description{
 Function to define basic functionality needed for a custom model that does
 not fit the general framework of models that align with \link[ADLP]{adlp_component}
 }
 \details{
 Custom model should support the S3 method \code{formula} and \code{update}.
+}
+\examples{
+data("test_claims_dataset")
+custom_model <- custom_model(claims~., data=test_claims_dataset)
+
+
 }

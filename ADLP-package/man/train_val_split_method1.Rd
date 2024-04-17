@@ -13,7 +13,7 @@ claims and related information for each cell. Dataframe will have columns
 
 \item{tri.size}{Triangle size.}
 
-\item{val_ratio}{Value between 0 and 1 as the approximate size of validaiton
+\item{val_ratio}{Value between 0 and 1 as the approximate size of validation
 set.}
 
 \item{test}{Returns the test set if \code{TRUE} .}
@@ -34,6 +34,18 @@ upper triangle. The test set is all observations in the lower triangle.
 
 Note that accident period 1 and development period 1 will always be within
 the training set.
+}
+\examples{
+
+data("test_claims_dataset")
+
+train_val <- train_val_split_method1(
+    df = test_claims_dataset,
+    tri.size = 40,
+    val_ratio = 0.3,
+    test = TRUE
+)
+
 }
 \seealso{
 \link[ADLP]{train_val_split}
