@@ -5,7 +5,7 @@
 \alias{test_adlp_component}
 \title{Test ADLP Component}
 \format{
-A \code{adlp_component} format, see \link[adlp_component]{adlp_component}.
+A \code{adlp_component} format, see \link[ADLP]{adlp_component}.
 }
 \usage{
 test_adlp_component
