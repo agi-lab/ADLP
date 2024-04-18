@@ -49,7 +49,7 @@
 #'
 #' newdata <- test_component1$model_train$data
 #'
-#' test_adlp <- adlp(test_components, newdata = newdata,
+#' test_adlp <- adlp(test_components, newdata = newdata, response_name = "claims",
 #'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
 #'
 #'
@@ -259,10 +259,10 @@ adlp_logS <- function(adlp, newdata, model = c("train", "full"), epsilon = 1e-6)
 #'
 #' newdata <- test_component1$model_train$data
 #'
-#' test_adlp <- adlp(test_components, newdata = newdata, response_name = "claims"
+#' test_adlp <- adlp(test_components, newdata = newdata,
 #'     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
 #'
-#' test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full")
+#' test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full", response_name = "claims")
 #'
 #' @export
 adlp_CRPS <- function(adlp, newdata, response_name, model = c("train", "full"), lower = 1, upper=NULL, sample_n = 2000) {

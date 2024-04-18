@@ -28,7 +28,10 @@ MM_func <- function(w,dat){
 #' final loss and numer of iterations.
 #'
 #' @examples
-#'
+#' w_init <- rep(1/3, 3)
+#' set.seed(1)
+#' density_data <- matrix(runif(9), nrow = 3, ncol = 3)
+#' MM_optim(w_init, density_data, niter = 500)
 #'
 #' @export
 MM_optim <- function(w_init, dat, niter = 500){
@@ -55,3 +58,5 @@ MM_optim <- function(w_init, dat, niter = 500){
     class(z) <- "mm_optim"
     return(z)
 }
+
+
