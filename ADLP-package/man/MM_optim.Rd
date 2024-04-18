@@ -26,6 +26,13 @@ combination weights adhere to the constraints of being non-negative and
 summing to one. For detailed description of the algorithm, one might refer
 to: Conflitti, De Mol, and Giannone (2015)
 }
+\examples{
+w_init <- rep(1/3, 3)
+set.seed(1)
+density_data <- matrix(runif(9), nrow = 3, ncol = 3)
+MM_optim(w_init, density_data, niter = 500)
+
+}
 \references{
 Conflitti, Cristina, Christine De Mol, and Domenico Giannone. "Optimal combination of survey forecasts." International Journal of Forecasting 31.4 (2015): 1096-1103.
 }

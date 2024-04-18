@@ -126,10 +126,10 @@ test_components <- adlp_components(
 
 newdata <- test_component1$model_train$data
 
-test_adlp <- adlp(test_components, newdata = newdata, response_name = "claims"
+test_adlp <- adlp(test_components, newdata = newdata,
     partition_func = adlp_partition_ap, tri.size = 40, size = 3)
 
-test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full")
+test_adlp_crps <- adlp_CRPS(test_adlp, newdata, "full", response_name = "claims")
 
 data(test_adlp_component)
 test_component1 <- test_adlp_component
