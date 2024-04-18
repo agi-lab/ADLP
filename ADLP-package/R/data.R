@@ -24,7 +24,7 @@
 #'
 #' A `adlp_component` object created for examples.
 #'
-#' @format A `adlp_component` format, see \link[adlp_component]{adlp_component}.
+#' @format A `adlp_component` format, see \link[ADLP]{adlp_component}.
 #'
 #' @examples
 #' test_adlp_component
